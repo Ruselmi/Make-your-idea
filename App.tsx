@@ -89,7 +89,8 @@ export default function MycSupremeV18() {
         customVisualPrompt: "",
         subOutlineColor: '#000000',
         subBox: false,
-        maxThreads: 4
+        maxThreads: 4,
+        debugMode: false
       };
       if (saved) { try { return { ...defaults, ...JSON.parse(saved) }; } catch (e) { return defaults; } }
       return defaults;
@@ -155,7 +156,12 @@ export default function MycSupremeV18() {
       localStorage.setItem('omni_history', JSON.stringify(newHistory));
   };
 
-  const log = (msg: string) => setLogMsg(msg);
+  const log = (msg: string) => {
+    setLogMsg(msg);
+    if (config.debugMode) {
+      console.log(`[MYC Log]: ${msg}`);
+    }
+  }
 
   // Animation Loop
   useEffect(() => {
@@ -795,6 +801,27 @@ export default function MycSupremeV18() {
                                                     ))}
                                                 </div>
                                             )}
+                                         </div>
+                                     </div>
+                                )}
+
+                                {configTab === 'system' && (
+                                     <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
+                                         <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
+                                             <div className="flex justify-between items-center mb-2">
+                                                 <label className="text-[10px] font-bold text-zinc-500 uppercase flex items-center gap-2">
+                                                     <Activity className="w-3 h-3"/> Debug Mode
+                                                 </label>
+                                                 <input
+                                                     type="checkbox"
+                                                     checked={config.debugMode}
+                                                     onChange={(e) => setConfig({...config, debugMode: e.target.checked})}
+                                                     className="accent-emerald-500"
+                                                 />
+                                             </div>
+                                             <p className="text-[9px] text-zinc-600">
+                                                 Show detailed logs in console and enhanced error visualization.
+                                             </p>
                                          </div>
                                      </div>
                                 )}
