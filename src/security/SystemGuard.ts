@@ -9,6 +9,11 @@ const LAST_LOAD_KEY = 'myc_last_load';
 const CRASH_THRESHOLD = 3;
 
 export const SystemGuard = {
+    init: () => {
+        console.log("[SystemGuard] Watchdog initialized in background.");
+        // We can perform proactive checks here if needed.
+    },
+
     reportCrash: () => {
         const count = parseInt(localStorage.getItem(CRASH_KEY) || '0');
         localStorage.setItem(CRASH_KEY, (count + 1).toString());

@@ -2,13 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ErrorBoundary } from './src/ErrorBoundary';
-import { SystemGuard } from './src/security/SystemGuard';
-
-// Check Stability before mounting
-if (!SystemGuard.checkStability()) {
-  throw new Error("Redirecting to Safe Mode...");
-}
-
 // Optional: Performance monitoring
 // import { reportWebVitals } from './src/reportWebVitals';
 
@@ -39,8 +32,7 @@ root.render(
   </React.StrictMode>
 );
 
-// Report successful boot (will validate after 5s)
-SystemGuard.reportSuccess();
+// Report successful boot logic has been moved to App.tsx via SecurityService
 
 // Performance logging (only if needed)
 // reportWebVitals(console.log);

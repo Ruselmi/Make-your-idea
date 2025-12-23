@@ -22,6 +22,7 @@ import {
 import { ParallelEngine, ConcurrencyMode } from './taskEngine';
 import { loadCorsImage } from './network';
 import { KeyVault } from './src/security/KeyVault';
+import { securityService } from './src/security/SecurityService';
 import MiniMoba from './src/MiniMoba';
 
 // --- CONSTANTS ---
@@ -179,6 +180,14 @@ export default function MycSupremeV18() {
   useEffect(() => {
     const saved = localStorage.getItem('omni_history');
     if (saved) { try { setSavedScripts(JSON.parse(saved)); } catch (e) {} }
+
+    // Background Security Init
+    securityService.init();
+
+    // Auto-Open Config if keys missing (Auto Menu)
+    if (!config.userApiKey && !config.imageKey && config.textProvider !== 'public') {
+         setTimeout(() => setShowConfig(true), 500);
+    }
   }, []);
 
   const saveToHistory = (plan: ScriptPlan) => {

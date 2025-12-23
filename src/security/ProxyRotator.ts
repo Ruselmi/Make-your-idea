@@ -24,6 +24,12 @@ class ProxyRotatorService {
     private blacklist: Set<string> = new Set();
     private requestCounts: Map<string, number> = new Map();
 
+    public async init(): Promise<void> {
+        console.log('[ProxyRotator] Initializing node map...');
+        // Simulate checking latency of gateways
+        return new Promise(resolve => setTimeout(resolve, 50));
+    }
+
     public getGateway(): string {
         const available = CORS_GATEWAYS.filter(g => !this.blacklist.has(g));
         if (available.length === 0) {
