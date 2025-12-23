@@ -1,6 +1,10 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Activity, AlertTriangle, RefreshCcw, ShieldCheck } from 'lucide-react';
-import { SystemGuard } from './security/SystemGuard';
+
+// --- SYSTEM GUARD PROXY (For ErrorBoundary) ---
+// Since SystemGuard is now internal to App.tsx, we can't import it directly.
+// We will rely on localStorage for crash reporting which SystemGuard monitors on boot.
+const CRASH_KEY = 'myc_crash_count';
 
 interface Props {
   children: ReactNode;
@@ -25,7 +29,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
-    SystemGuard.reportCrash(); // <--- Report the crash
+
+    // Direct crash reporting (duplicate logic from App.tsx/SystemGuard to avoid circular dependency or import issues)
+    const count = parseInt(localStorage.getItem(CRASH_KEY) || '0');
+    localStorage.setItem(CRASH_KEY, (count + 1).toString());
+
     this.setState({ errorInfo });
   }
 

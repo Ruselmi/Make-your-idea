@@ -2,14 +2,27 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { AppConfig, ScriptPlan, MusicTrack, DurationStep } from './types';
 import { robustJsonParse, pcmToWavBytes } from './utils';
 import { secureFetch } from './network'; 
-import { KeyVault } from './src/security/KeyVault';
+
+// --- SIMPLE KEY UTILS (Duplicated from App.tsx to avoid circular imports) ---
+const SECRET_SALT = "MYC_V18_SUPREME_SALT";
+const decryptKey = (encryptedKey: string | undefined): string | undefined => {
+    if (!encryptedKey || !encryptedKey.startsWith('ENC_')) return encryptedKey;
+    try {
+        const raw = atob(encryptedKey.substring(4));
+        const chars = raw.split('');
+        const saltChars = SECRET_SALT.split('');
+        return chars.map((c, i) =>
+            String.fromCharCode(c.charCodeAt(0) ^ saltChars[i % saltChars.length].charCodeAt(0))
+        ).join('');
+    } catch (e) { return undefined; }
+};
 
 // --- GEMINI SERVICE ---
 const getClient = (config?: AppConfig) => {
   // Prioritize User API Key, then Env Var
   const rawKey = config?.userApiKey || process.env.API_KEY;
   // Decrypt if necessary
-  const key = rawKey?.startsWith('ENC_') ? KeyVault.decrypt(rawKey) : rawKey;
+  const key = rawKey?.startsWith('ENC_') ? decryptKey(rawKey) : rawKey;
 
   if (!key) {
     throw new Error("API_KEY not found. Please enter it in Settings -> API.");
@@ -26,7 +39,7 @@ const fetchOpenAICompatible = async (
     userPrompt: string,
     temperature: number = 0.7
 ): Promise<string> => {
-    const decKey = apiKey?.startsWith('ENC_') ? KeyVault.decrypt(apiKey) : apiKey;
+    const decKey = apiKey?.startsWith('ENC_') ? decryptKey(apiKey) : apiKey;
     if (!decKey) throw new Error("API Key required for this provider.");
 
     // Use ProxyRotator logic in fetch if strictly needed, but for OpenAI API it usually requires direct
