@@ -12,16 +12,16 @@ import {
   Sword, Shield, Crosshair, Map as MapIcon, ShoppingBag
 } from 'lucide-react';
 
-import { AppConfig, ScriptPlan, ScriptItem, DurationStep, MusicTrack, FeedItem } from './types';
+import { AppConfig, ScriptPlan, ScriptItem, DurationStep, MusicTrack, FeedItem } from './src/types';
 import { 
   drawSearchingEffect, drawMergingEffect, drawAudioVisualizer,
   refineScriptPlan 
-} from './utils';
+} from './src/utils';
 import { 
   fetchScript, fetchSmartMusic, fetchTTS, fetchVisual, fetchWiki, fetchBatchVariations, searchItunesLibrary, fetchRandomWiki, fetchRandomIndoMusic
-} from './services';
-import { ParallelEngine, ConcurrencyMode } from './taskEngine';
-import { loadCorsImage } from './network';
+} from './src/services';
+import { ParallelEngine, ConcurrencyMode } from './src/taskEngine';
+import { loadCorsImage } from './src/network';
 
 // ==========================================
 // 🛡️ SECURITY MODULES (MERGED)

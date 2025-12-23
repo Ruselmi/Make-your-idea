@@ -30,6 +30,7 @@ export interface AppConfig {
   userApiKey: string; // Gemini Key
   secondaryApiKey: string; // OpenAI/DeepSeek Key
   textProvider: 'gemini' | 'chatgpt' | 'deepseek' | 'public';
+  geminiModel: string; // NEW: Model Selection
   
   // Core
   imageKey: string;
@@ -72,6 +73,12 @@ export interface AppConfig {
   subOutlineColor: string;
   subBox: boolean; // Draw background box for subs
   maxThreads: number; // Manual thread limit
+  debugMode?: boolean; // Toggle visible debug logs
+
+  // Developer Options
+  devModeEnabled?: boolean;
+  customModelId?: string; // Manual override
+  maxLoopOverride?: number; // Override for batch size
 }
 
 export interface MusicTrack {
@@ -95,4 +102,10 @@ export interface DurationStep {
   val: number;
   scenes: number;
   style: string;
+}
+
+export interface VoiceProfile {
+  id: string;
+  label: string;
+  gender: 'male' | 'female';
 }
