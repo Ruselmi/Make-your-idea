@@ -266,10 +266,11 @@ export const fetchScript = async (
 
     if (config.textProvider === 'chatgpt') {
         // OpenAI / ChatGPT
-        logFn("🤖 Generating with ChatGPT...");
+        const model = config.geminiModel.includes('gpt') ? config.geminiModel : 'gpt-3.5-turbo';
+        logFn(`🤖 Generating with ChatGPT (${model})...`);
         const text = await fetchOpenAICompatible(
             'https://api.openai.com/v1/chat/completions',
-            'gpt-3.5-turbo', // Or gpt-4
+            model,
             config.secondaryApiKey,
             systemPrompt,
             userPrompt,
@@ -279,10 +280,11 @@ export const fetchScript = async (
 
     } else if (config.textProvider === 'deepseek') {
         // DeepSeek
-        logFn("🐋 Generating with DeepSeek...");
+        const model = config.geminiModel.includes('deepseek') ? config.geminiModel : 'deepseek-chat';
+        logFn(`🐋 Generating with DeepSeek (${model})...`);
         const text = await fetchOpenAICompatible(
             'https://api.deepseek.com/chat/completions',
-            'deepseek-chat', 
+            model,
             config.secondaryApiKey,
             systemPrompt,
             userPrompt,

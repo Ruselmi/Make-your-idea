@@ -36,11 +36,21 @@ const TTS_PROVIDERS = [
   { id: 'google', name: '🗣️ Google Translate (Public)' },
 ];
 
-const GEMINI_MODELS = [
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash (Fastest)' },
-  { id: 'gemini-3-pro-preview', label: 'Gemini 3.0 Pro (Smartest)' },
-  { id: 'gemini-2.5-flash-latest', label: 'Gemini 2.5 Flash' },
-  { id: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Exp' },
+const ALL_MODELS = [
+  // Gemini
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash', provider: 'gemini' },
+  { id: 'gemini-3-pro-preview', label: 'Gemini 3.0 Pro', provider: 'gemini' },
+  { id: 'gemini-2.5-flash-latest', label: 'Gemini 2.5 Flash', provider: 'gemini' },
+  { id: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash Exp', provider: 'gemini' },
+  // DeepSeek
+  { id: 'deepseek-reasoner', label: 'DeepSeek R1 (Reasoning)', provider: 'deepseek' },
+  { id: 'deepseek-chat', label: 'DeepSeek V3 (Chat)', provider: 'deepseek' },
+  // OpenAI
+  { id: 'gpt-4o', label: 'GPT-4o', provider: 'chatgpt' },
+  { id: 'gpt-4-turbo', label: 'GPT-4 Turbo', provider: 'chatgpt' },
+  { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', provider: 'chatgpt' },
+  { id: 'gpt-5-preview', label: 'GPT-5 (Preview)', provider: 'chatgpt' }, // Placeholder
+  { id: 'gpt-5.1', label: 'GPT-5.1 (Alpha)', provider: 'chatgpt' }, // Placeholder
 ];
 
 const VISUAL_STYLES = [
@@ -754,24 +764,55 @@ export default function MycSupremeV18() {
                         </div>
                     </div>
 
-                    {/* Scene Count */}
-                    <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Scenes</label>
-                        <div className="flex items-center justify-between">
-                            <button onClick={()=>setSceneCount(Math.max(3, sceneCount-1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">-</button>
-                            <span className="font-mono text-xl font-bold">{sceneCount}</span>
-                            <button onClick={()=>setSceneCount(Math.min(20, sceneCount+1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">+</button>
-                        </div>
+                    {/* Strategy Toggle */}
+                    <div className="bg-zinc-900 p-1 rounded-xl border border-zinc-800 flex items-center">
+                        <button
+                            onClick={() => setConfig({...config, planningStrategy: 'scene_count'})}
+                            className={`flex-1 py-2 rounded-lg text-[9px] font-bold uppercase transition ${config.planningStrategy === 'scene_count' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}
+                        >
+                            Scenes
+                        </button>
+                        <button
+                            onClick={() => setConfig({...config, planningStrategy: 'total_duration'})}
+                            className={`flex-1 py-2 rounded-lg text-[9px] font-bold uppercase transition ${config.planningStrategy === 'total_duration' ? 'bg-zinc-800 text-white' : 'text-zinc-600'}`}
+                        >
+                            Duration
+                        </button>
                     </div>
 
-                    {/* Duration per Scene */}
-                    <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
-                        <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Sec/Scene</label>
-                        <div className="flex items-center justify-between">
-                            <button onClick={()=>setSceneDur(Math.max(3, sceneDur-1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">-</button>
-                            <span className="font-mono text-xl font-bold">{sceneDur}</span>
-                            <button onClick={()=>setSceneDur(Math.min(15, sceneDur+1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">+</button>
+                    {/* Dynamic Inputs based on Strategy */}
+                    {config.planningStrategy === 'scene_count' ? (
+                        <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Scenes</label>
+                            <div className="flex items-center justify-between">
+                                <button onClick={()=>setSceneCount(Math.max(3, sceneCount-1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">-</button>
+                                <span className="font-mono text-xl font-bold">{sceneCount}</span>
+                                <button onClick={()=>setSceneCount(Math.min(20, sceneCount+1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">+</button>
+                            </div>
                         </div>
+                    ) : (
+                        <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                            <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Minutes</label>
+                            <div className="flex items-center justify-between">
+                                <button onClick={()=>setConfig({...config, targetDuration: Math.max(0.5, config.targetDuration - 0.5)})} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">-</button>
+                                <span className="font-mono text-xl font-bold">{config.targetDuration}</span>
+                                <button onClick={()=>setConfig({...config, targetDuration: Math.min(5, config.targetDuration + 0.5)})} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">+</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Custom API Selector (On the fly) */}
+                    <div className="col-span-2 bg-zinc-900 p-2 rounded-xl border border-zinc-800 flex items-center gap-2 overflow-x-auto custom-scrollbar">
+                        <span className="text-[9px] font-bold text-zinc-500 uppercase whitespace-nowrap pl-2">Model:</span>
+                        {ALL_MODELS.filter(m => m.provider === config.textProvider).map(m => (
+                            <button
+                                key={m.id}
+                                onClick={() => setConfig({...config, geminiModel: m.id})}
+                                className={`px-2 py-1 rounded text-[9px] font-mono whitespace-nowrap border transition ${config.geminiModel === m.id ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-400' : 'bg-black border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+                            >
+                                {m.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
@@ -880,14 +921,17 @@ export default function MycSupremeV18() {
                                      <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
                                          {/* Model Selection */}
                                          <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
-                                            <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2">Gemini Model Version</label>
-                                            <div className="grid grid-cols-1 gap-2">
-                                                {GEMINI_MODELS.map(m => (
+                                            <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2">AI Model Version</label>
+                                            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                                                {ALL_MODELS.filter(m => m.provider === config.textProvider).map(m => (
                                                     <button key={m.id} onClick={() => setConfig({...config, geminiModel: m.id})} className={`p-3 rounded-lg border text-left transition-all ${config.geminiModel === m.id ? 'bg-emerald-900/20 border-emerald-500/50 text-emerald-400' : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}>
                                                         <div className="text-[11px] font-bold">{m.label}</div>
                                                         <div className="text-[9px] text-zinc-600 font-mono mt-0.5">{m.id}</div>
                                                     </button>
                                                 ))}
+                                                {ALL_MODELS.filter(m => m.provider === config.textProvider).length === 0 && (
+                                                    <div className="text-zinc-500 text-[10px] italic p-2">Select a different provider to see models.</div>
+                                                )}
                                             </div>
                                          </div>
 
