@@ -13,13 +13,7 @@ if (!rootElement) {
   throw new Error("CRITICAL: DOM Root element not found.");
 }
 
-// Remove loader if it exists (React 18 usually handles hydration, but we want a clean swap)
-const loader = document.getElementById('initial-loader');
-if (loader) {
-    // We can add a transition class here if we want a fade out effect
-    loader.style.opacity = '0';
-    setTimeout(() => loader.remove(), 500);
-}
+// Loader is handled by index.html script for the "Super Slow" effect
 
 const root = ReactDOM.createRoot(rootElement);
 

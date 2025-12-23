@@ -4,24 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#000000" />
-    <meta name="description" content="MYC Supreme V18 - Advanced AI Video Generation Engine" />
-    <meta name="keywords" content="AI, Video, Generator, Gemini, React, TypeScript, Creative" />
-    <meta name="author" content="MYC Systems" />
-
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://myc-supreme.app/" />
-    <meta property="og:title" content="MYC Supreme V18" />
-    <meta property="og:description" content="Next-gen AI Content Creation Studio" />
-    <meta property="og:image" content="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1200&auto=format&fit=crop" />
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://myc-supreme.app/" />
-    <meta property="twitter:title" content="MYC Supreme V18" />
-    <meta property="twitter:description" content="Next-gen AI Content Creation Studio" />
-    <meta property="twitter:image" content="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1200&auto=format&fit=crop" />
-
     <title>MYC Supreme V18</title>
 
     <!-- Preconnect -->
@@ -47,26 +29,29 @@
         z-index: 9999;
         font-family: 'JetBrains Mono', monospace;
         color: #10b981;
+        transition: opacity 0.8s ease-out;
       }
       .loader-spinner {
-        width: 50px;
-        height: 50px;
-        border: 3px solid rgba(16, 185, 129, 0.3);
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(16, 185, 129, 0.2);
         border-radius: 50%;
         border-top-color: #10b981;
-        animation: spin 1s ease-in-out infinite;
-        margin-bottom: 20px;
+        animation: spin 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        margin-bottom: 40px;
       }
       .loader-text {
-        font-size: 12px;
-        letter-spacing: 0.2em;
-        animation: pulse 2s infinite;
+        font-size: 14px;
+        letter-spacing: 0.3em;
+        font-weight: 700;
+        animation: pulse 3s infinite;
+        margin-bottom: 20px;
+        text-shadow: 0 0 10px rgba(16,185,129,0.3);
       }
       .loader-bar {
         width: 200px;
         height: 2px;
-        background: #1f2937;
-        margin-top: 10px;
+        background: #064e3b; /* Dark Green */
         position: relative;
         overflow: hidden;
       }
@@ -76,12 +61,41 @@
         top: 0;
         left: 0;
         height: 100%;
-        width: 50%;
+        width: 40%;
         background: #10b981;
-        animation: loading 1.5s infinite ease-in-out;
+        animation: loading 2s infinite ease-in-out;
+        box-shadow: 0 0 10px #10b981;
       }
+
+      /* Continue Button */
+      #continue-btn {
+        margin-top: 40px;
+        padding: 12px 30px;
+        background: transparent;
+        border: 1px solid #10b981;
+        color: #10b981;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        font-weight: bold;
+        letter-spacing: 0.2em;
+        cursor: pointer;
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.5s ease;
+        text-transform: uppercase;
+        box-shadow: 0 0 15px rgba(16,185,129,0.1);
+      }
+      #continue-btn:hover {
+        background: rgba(16, 185, 129, 0.1);
+        box-shadow: 0 0 25px rgba(16,185,129,0.3);
+      }
+      #continue-btn.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
       @keyframes spin { to { transform: rotate(360deg); } }
-      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
       @keyframes loading { 0% { left: -50%; } 100% { left: 100%; } }
       
       input[type=number]::-webkit-inner-spin-button, 
@@ -95,18 +109,39 @@
     <noscript>
       <div style="padding: 2rem; color: white; text-align: center; font-family: sans-serif;">
         <h1>JavaScript Required</h1>
-        <p>This application requires JavaScript to function. Please enable it in your browser settings.</p>
+        <p>This application requires JavaScript to function.</p>
       </div>
     </noscript>
 
-    <div id="root" class="flex-1 h-full overflow-hidden">
-      <!-- Initial Loading State -->
-      <div id="initial-loader">
-        <div class="loader-spinner"></div>
-        <div class="loader-text">INITIALIZING CORE SYSTEMS</div>
-        <div class="loader-bar"></div>
-      </div>
+    <!-- Initial Loading State -->
+    <div id="initial-loader">
+      <div class="loader-spinner"></div>
+      <div class="loader-text">INITIALIZING CORE SYSTEMS</div>
+      <div class="loader-bar"></div>
+      <button id="continue-btn" onclick="enterApp()">[ CONTINUE ]</button>
     </div>
+
+    <div id="root" class="flex-1 h-full overflow-hidden"></div>
+
+    <script>
+      // Super Slow Loading Logic
+      const loader = document.getElementById('initial-loader');
+      const btn = document.getElementById('continue-btn');
+
+      // Show button after 5 seconds
+      setTimeout(() => {
+        if(btn) btn.classList.add('visible');
+      }, 5000);
+
+      window.enterApp = function() {
+        if(loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.remove();
+            }, 800); // 0.8s fade out
+        }
+      };
+    </script>
 
     <script type="module" src="/index.tsx"></script>
   </body>
