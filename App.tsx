@@ -8,7 +8,7 @@ import {
   Layers, Repeat, Search, Film, Activity,
   Edit, Save, Trash2, Plus, Key, MessageSquare,
   Thermometer, Type, Cpu, Settings, Sparkles,
-  ArrowRight, LayoutGrid, List
+  ArrowRight, LayoutGrid, List, Terminal as TerminalIcon, Gamepad2
 } from 'lucide-react';
 
 import { AppConfig, ScriptPlan, ScriptItem, DurationStep, MusicTrack, FeedItem } from './types';
@@ -21,6 +21,7 @@ import {
 } from './services';
 import { ParallelEngine, ConcurrencyMode } from './taskEngine';
 import { loadCorsImage } from './network';
+import MiniMoba from './src/MiniMoba';
 
 // --- CONSTANTS ---
 const TEXT_PROVIDERS = [
@@ -106,7 +107,10 @@ export default function MycSupremeV18() {
         subOutlineColor: '#000000',
         subBox: false,
         maxThreads: 4,
-        debugMode: false
+        debugMode: false,
+        devModeEnabled: false,
+        customModelId: '',
+        maxLoopOverride: 5
       };
       if (saved) { try { return { ...defaults, ...JSON.parse(saved) }; } catch (e) { return defaults; } }
       return defaults;
@@ -156,6 +160,10 @@ export default function MycSupremeV18() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [playingSceneIdx, setPlayingSceneIdx] = useState<number | null>(null);
   
+  // Dev State
+  const [devTapCount, setDevTapCount] = useState(0);
+  const [showGame, setShowGame] = useState(false);
+
   // Refs
   const audioCtxRef = useRef<AudioContext | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -282,6 +290,18 @@ export default function MycSupremeV18() {
       const results = await searchItunesLibrary(musicQuery);
       setMusicResults(results);
       setIsSearchingMusic(false);
+  };
+
+  const handleDevTap = () => {
+      setDevTapCount(prev => {
+          const next = prev + 1;
+          if (next === 5) {
+              setConfig(c => ({...c, devModeEnabled: !c.devModeEnabled}));
+              log(config.devModeEnabled ? "Developer Mode Disabled" : "Developer Mode Enabled");
+              return 0;
+          }
+          return next;
+      });
   };
   const playPreview = (url: string) => {
       if (previewAudio) {
@@ -668,7 +688,7 @@ export default function MycSupremeV18() {
             
             {/* 1. TOP HEADER (FLOATING) */}
             <header className="absolute top-0 left-0 right-0 z-50 px-6 py-6 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-                <div className="pointer-events-auto">
+                <div className="pointer-events-auto cursor-pointer select-none" onClick={handleDevTap}>
                     <h1 className="font-black text-xl tracking-tighter text-white">MYC <span className="text-emerald-500">V18</span></h1>
                     <div className="flex items-center gap-2">
                         <div className={`w-1.5 h-1.5 rounded-full ${status.color} shadow-[0_0_10px_currentColor]`}></div>
@@ -844,7 +864,7 @@ export default function MycSupremeV18() {
                              <span className={`text-xs font-bold ${batchSize > 1 ? 'text-blue-400' : 'text-zinc-300'}`}>{batchSize}</span>
                              <span className="text-[8px] text-zinc-600 font-bold uppercase">LOOP</span>
                          </div>
-                         <button onClick={()=>setBatchSize(Math.min(5, batchSize+1))} className="w-6 h-full text-zinc-500 hover:text-white flex items-center justify-center">+</button>
+                         <button onClick={()=>setBatchSize(Math.min(config.maxLoopOverride || 5, batchSize+1))} className="w-6 h-full text-zinc-500 hover:text-white flex items-center justify-center">+</button>
                     </div>
 
                     {/* Main Action Button */}
@@ -895,6 +915,11 @@ export default function MycSupremeV18() {
                                         </button>
                                     );
                                 })}
+                                {config.devModeEnabled && (
+                                    <button onClick={() => setConfigTab('dev')} className={`px-3 py-2 rounded-lg flex items-center gap-2 text-[10px] font-bold whitespace-nowrap transition-all ${configTab === 'dev' ? 'bg-red-900/20 text-red-400 shadow-sm border border-red-500/20' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                                        <TerminalIcon className={`w-3 h-3`}/> Dev
+                                    </button>
+                                )}
                             </div>
 
                             <div className="p-6 space-y-6">
@@ -1043,6 +1068,44 @@ export default function MycSupremeV18() {
                                          </div>
                                      </div>
                                 )}
+
+                                {configTab === 'dev' && config.devModeEnabled && (
+                                    <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
+                                        <div className="p-4 bg-red-900/10 border border-red-500/20 rounded-xl">
+                                            <h3 className="text-red-400 font-bold text-xs mb-4 flex items-center gap-2"><TerminalIcon className="w-4 h-4"/> DEVELOPER OPTIONS</h3>
+
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Custom Model Override</label>
+                                                    <input
+                                                        value={config.customModelId || ''}
+                                                        onChange={(e) => setConfig({...config, customModelId: e.target.value})}
+                                                        placeholder="e.g., gpt-4-32k-0613"
+                                                        className="w-full bg-black border border-zinc-800 text-red-400 font-mono text-xs rounded-lg p-2.5 outline-none focus:border-red-500"
+                                                    />
+                                                    <p className="text-[9px] text-zinc-600 mt-1">Directly overrides any selected model ID.</p>
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Max Loop Limit</label>
+                                                    <input
+                                                        type="number"
+                                                        value={config.maxLoopOverride || 5}
+                                                        onChange={(e) => setConfig({...config, maxLoopOverride: parseInt(e.target.value)})}
+                                                        className="w-full bg-black border border-zinc-800 text-white font-mono text-xs rounded-lg p-2.5 outline-none focus:border-emerald-500"
+                                                    />
+                                                </div>
+
+                                                <button
+                                                    onClick={() => setShowGame(true)}
+                                                    className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs rounded-xl border border-zinc-700 flex items-center justify-center gap-2"
+                                                >
+                                                    <Gamepad2 className="w-4 h-4 text-emerald-500"/> LAUNCH PROTOCOL M.L.
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1061,6 +1124,9 @@ export default function MycSupremeV18() {
                     <span className="text-zinc-500 bg-black/50 px-2 py-1 rounded backdrop-blur">{logMsg}</span>
                 </div>
             </div>
+
+            {/* EASTER EGG GAME OVERLAY */}
+            {showGame && <MiniMoba onClose={() => setShowGame(false)} />}
 
         </div>
     </div>

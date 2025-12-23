@@ -74,6 +74,11 @@ export interface AppConfig {
   subBox: boolean; // Draw background box for subs
   maxThreads: number; // Manual thread limit
   debugMode?: boolean; // Toggle visible debug logs
+
+  // Developer Options
+  devModeEnabled?: boolean;
+  customModelId?: string; // Manual override
+  maxLoopOverride?: number; // Override for batch size
 }
 
 export interface MusicTrack {

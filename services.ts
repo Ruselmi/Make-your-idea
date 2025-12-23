@@ -266,7 +266,7 @@ export const fetchScript = async (
 
     if (config.textProvider === 'chatgpt') {
         // OpenAI / ChatGPT
-        const model = config.geminiModel.includes('gpt') ? config.geminiModel : 'gpt-3.5-turbo';
+        const model = config.customModelId || (config.geminiModel.includes('gpt') ? config.geminiModel : 'gpt-3.5-turbo');
         logFn(`🤖 Generating with ChatGPT (${model})...`);
         const text = await fetchOpenAICompatible(
             'https://api.openai.com/v1/chat/completions',
@@ -280,7 +280,7 @@ export const fetchScript = async (
 
     } else if (config.textProvider === 'deepseek') {
         // DeepSeek
-        const model = config.geminiModel.includes('deepseek') ? config.geminiModel : 'deepseek-chat';
+        const model = config.customModelId || (config.geminiModel.includes('deepseek') ? config.geminiModel : 'deepseek-chat');
         logFn(`🐋 Generating with DeepSeek (${model})...`);
         const text = await fetchOpenAICompatible(
             'https://api.deepseek.com/chat/completions',
@@ -297,8 +297,8 @@ export const fetchScript = async (
         const ai = getClient(config);
         const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
         
-        // Use selected Gemini Model
-        const modelName = config.geminiModel || 'gemini-3-flash-preview';
+        // Use selected Gemini Model or Custom
+        const modelName = config.customModelId || config.geminiModel || 'gemini-3-flash-preview';
         logFn(`✨ Generating with ${modelName}...`);
 
         const response = await ai.models.generateContent({
