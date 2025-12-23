@@ -73,6 +73,7 @@ export interface AppConfig {
   subOutlineColor: string;
   subBox: boolean; // Draw background box for subs
   maxThreads: number; // Manual thread limit
+  debugMode?: boolean; // Toggle visible debug logs
 }
 
 export interface MusicTrack {

@@ -17,7 +17,7 @@ import {
   refineScriptPlan 
 } from './utils';
 import { 
-  fetchScript, fetchSmartMusic, fetchTTS, fetchVisual, fetchWiki, fetchBatchVariations, searchItunesLibrary
+  fetchScript, fetchSmartMusic, fetchTTS, fetchVisual, fetchWiki, fetchBatchVariations, searchItunesLibrary, fetchRandomWiki
 } from './services';
 import { ParallelEngine, ConcurrencyMode } from './taskEngine';
 import { loadCorsImage } from './network';
@@ -27,7 +27,13 @@ const TEXT_PROVIDERS = [
   { id: 'gemini', name: '✨ Gemini API (Google)' },
   { id: 'chatgpt', name: '🤖 ChatGPT (OpenAI)' },
   { id: 'deepseek', name: '🐋 DeepSeek V3/R1' },
-  { id: 'public', name: '🌍 Public (Simple/Wiki)' },
+  { id: 'public', name: '🌍 Public (Wiki/Reddit)' },
+];
+
+const TTS_PROVIDERS = [
+  { id: 'auto', name: '⚡ Auto (Gemini + Fallback)' },
+  { id: 'gemini', name: '✨ Gemini (High Quality)' },
+  { id: 'google', name: '🗣️ Google Translate (Public)' },
 ];
 
 const GEMINI_MODELS = [
@@ -89,7 +95,8 @@ export default function MycSupremeV18() {
         customVisualPrompt: "",
         subOutlineColor: '#000000',
         subBox: false,
-        maxThreads: 4
+        maxThreads: 4,
+        debugMode: false
       };
       if (saved) { try { return { ...defaults, ...JSON.parse(saved) }; } catch (e) { return defaults; } }
       return defaults;
@@ -118,6 +125,9 @@ export default function MycSupremeV18() {
   const [batchIndex, setBatchIndex] = useState(0);
   const [batchQueue, setBatchQueue] = useState<string[]>([]);
   const [isBatchRunning, setIsBatchRunning] = useState(false);
+
+  // Auto-TikTok State
+  const [isAutoFeedMode, setIsAutoFeedMode] = useState(false);
 
   // System State
   const [status, setStatus] = useState({ text: 'READY', color: 'bg-emerald-500' });
@@ -155,7 +165,12 @@ export default function MycSupremeV18() {
       localStorage.setItem('omni_history', JSON.stringify(newHistory));
   };
 
-  const log = (msg: string) => setLogMsg(msg);
+  const log = (msg: string) => {
+    setLogMsg(msg);
+    if (config.debugMode) {
+      console.log(`[MYC Log]: ${msg}`);
+    }
+  }
 
   // Animation Loop
   useEffect(() => {
@@ -183,6 +198,83 @@ export default function MycSupremeV18() {
     else if(animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     return () => { if(animFrameRef.current) cancelAnimationFrame(animFrameRef.current); };
   }, [step, activeThreads, renderProgress]);
+
+  // Auto-TikTok Logic
+  useEffect(() => {
+      if (viewMode === 'feed') {
+          // If we are in Feed mode, we might want to trigger auto-generation if the list is short
+          // "Sistem load infinity 3" -> Keep at least 3 items ahead if possible
+          // Current logic: If feed length < 3 (or arbitrary small number) and not currently rendering, trigger generation
+
+          if (!isAutoFeedMode) setIsAutoFeedMode(true);
+
+          if (!isBatchRunning && step === 0 && feed.length < 3) {
+             // Trigger auto-generation
+             triggerAutoFeedGeneration();
+          }
+      } else {
+          setIsAutoFeedMode(false);
+      }
+  }, [viewMode, feed.length, isBatchRunning, step]);
+
+  const triggerAutoFeedGeneration = async () => {
+      log("♾️ Auto-TikTok: Finding topic...");
+      // 1. Get Random Topic
+      const randomTopic = await fetchRandomWiki();
+      const topicTitle = randomTopic ? randomTopic.title : "Random Topic";
+
+      // 2. Configure for Speed and "TikTok" style (6-8 scenes)
+      // We override some config values temporarily for this run by passing them directly or modifying state?
+      // Modifying state might be jittery. Ideally 'igniteEngine' or 'runProductionCycle' accepts overrides.
+      // For now, let's just set the topic and run.
+
+      setTopic(topicTitle);
+      // Random scene count 6-8
+      const count = Math.floor(Math.random() * 3) + 6;
+      setSceneCount(count);
+
+      // Force "Public" provider for speed/cost if not set? Or use config?
+      // User requested "ambil dan memuat data gul api publim" -> Public API
+      // We should temporarily force prodMode='wiki' or textProvider='public'
+      // BUT `runProductionCycle` uses `config`.
+      // Let's create a specialized launcher.
+
+      startAutoFeedCycle(topicTitle, count);
+  };
+
+  const startAutoFeedCycle = async (autoTopic: string, autoScenes: number) => {
+      // Specialized version of igniteEngine
+      if(audioCtxRef.current?.state === 'suspended') await audioCtxRef.current.resume();
+
+      setDownloadUrl(null);
+      setPlayingSceneIdx(null);
+      stopRenderRef.current = false;
+
+      // Ensure we don't switch viewMode back to studio if we are already in feed
+      // But `igniteEngine` sets viewMode='studio'. We want to stay in 'feed' technically,
+      // but the CANVAS is in 'studio' layer.
+      // Trick: We let it render in background.
+      // The canvas is currently hidden if viewMode='feed' (opacity-0).
+      // We need it to render there. That's fine.
+
+      setIsBatchRunning(true);
+
+      // Temporary Config Override for this run?
+      // We'll just modify the params passed to fetchScript/ParallelEngine manually or
+      // rely on state updates which might be slow.
+      // Best approach: Just run the cycle.
+      // We need to make sure we use 'public' provider.
+
+      // Hack: We can't easily override `config` inside `runProductionCycle` without changing it.
+      // Let's just update the state and rely on React's update batching or use a timeout.
+      setConfig(prev => ({ ...prev, textProvider: 'public', fastMode: true }));
+      setProdMode('wiki'); // Force Wiki mode
+
+      // Small delay to let state settle
+      setTimeout(() => {
+          runProductionCycle(autoTopic, 0, []);
+      }, 100);
+  };
 
   // Music Logic
   const handleMusicSearch = async () => {
@@ -224,7 +316,9 @@ export default function MycSupremeV18() {
       setDownloadUrl(null);
       setPlayingSceneIdx(null);
       stopRenderRef.current = false;
-      setViewMode('studio');
+
+      // Only switch to studio if NOT in auto mode
+      if (!isAutoFeedMode) setViewMode('studio');
 
       if (batchSize > 1 && !isBatchRunning) {
           setStep(1);
@@ -430,7 +524,9 @@ export default function MycSupremeV18() {
               topic: currentTitle
           };
           setFeed(prev => [newFeedItem, ...prev]);
-          setViewMode('feed');
+
+          // Force switch to feed if we generated manually
+          if (!isAutoFeedMode) setViewMode('feed');
 
           log(`✅ Done: ${currentTitle}`);
           setPlayingSceneIdx(null);
@@ -777,6 +873,17 @@ export default function MycSupremeV18() {
                                                  <input type="range" min="0" max="1.5" step="0.05" value={config.ttsVol} onChange={e=>setConfig({...config, ttsVol: parseFloat(e.target.value)})} className="w-full h-1 bg-zinc-700 rounded-lg accent-blue-500"/>
                                              </div>
                                          </div>
+
+                                         <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
+                                            <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2">TTS Provider</label>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {TTS_PROVIDERS.map(p => (
+                                                    <button key={p.id} onClick={() => setConfig({...config, ttsProvider: p.id})} className={`p-3 rounded-lg border text-left transition-all ${config.ttsProvider === p.id ? 'bg-blue-900/20 border-blue-500/50 text-blue-400' : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}>
+                                                        <div className="text-[11px] font-bold">{p.name}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                         </div>
                                          
                                          <div>
                                             <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2">iTunes Music Search</label>
@@ -795,6 +902,27 @@ export default function MycSupremeV18() {
                                                     ))}
                                                 </div>
                                             )}
+                                         </div>
+                                     </div>
+                                )}
+
+                                {configTab === 'system' && (
+                                     <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in">
+                                         <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
+                                             <div className="flex justify-between items-center mb-2">
+                                                 <label className="text-[10px] font-bold text-zinc-500 uppercase flex items-center gap-2">
+                                                     <Activity className="w-3 h-3"/> Debug Mode
+                                                 </label>
+                                                 <input
+                                                     type="checkbox"
+                                                     checked={config.debugMode}
+                                                     onChange={(e) => setConfig({...config, debugMode: e.target.checked})}
+                                                     className="accent-emerald-500"
+                                                 />
+                                             </div>
+                                             <p className="text-[9px] text-zinc-600">
+                                                 Show detailed logs in console and enhanced error visualization.
+                                             </p>
                                          </div>
                                      </div>
                                 )}
