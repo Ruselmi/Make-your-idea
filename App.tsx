@@ -17,7 +17,7 @@ import {
   refineScriptPlan 
 } from './utils';
 import { 
-  fetchScript, fetchSmartMusic, fetchTTS, fetchVisual, fetchWiki, fetchBatchVariations, searchItunesLibrary
+  fetchScript, fetchSmartMusic, fetchTTS, fetchVisual, fetchWiki, fetchBatchVariations, searchItunesLibrary, fetchRandomWiki
 } from './services';
 import { ParallelEngine, ConcurrencyMode } from './taskEngine';
 import { loadCorsImage } from './network';
@@ -126,6 +126,9 @@ export default function MycSupremeV18() {
   const [batchQueue, setBatchQueue] = useState<string[]>([]);
   const [isBatchRunning, setIsBatchRunning] = useState(false);
 
+  // Auto-TikTok State
+  const [isAutoFeedMode, setIsAutoFeedMode] = useState(false);
+
   // System State
   const [status, setStatus] = useState({ text: 'READY', color: 'bg-emerald-500' });
   const [configTab, setConfigTab] = useState<string>('api'); 
@@ -196,6 +199,83 @@ export default function MycSupremeV18() {
     return () => { if(animFrameRef.current) cancelAnimationFrame(animFrameRef.current); };
   }, [step, activeThreads, renderProgress]);
 
+  // Auto-TikTok Logic
+  useEffect(() => {
+      if (viewMode === 'feed') {
+          // If we are in Feed mode, we might want to trigger auto-generation if the list is short
+          // "Sistem load infinity 3" -> Keep at least 3 items ahead if possible
+          // Current logic: If feed length < 3 (or arbitrary small number) and not currently rendering, trigger generation
+
+          if (!isAutoFeedMode) setIsAutoFeedMode(true);
+
+          if (!isBatchRunning && step === 0 && feed.length < 3) {
+             // Trigger auto-generation
+             triggerAutoFeedGeneration();
+          }
+      } else {
+          setIsAutoFeedMode(false);
+      }
+  }, [viewMode, feed.length, isBatchRunning, step]);
+
+  const triggerAutoFeedGeneration = async () => {
+      log("♾️ Auto-TikTok: Finding topic...");
+      // 1. Get Random Topic
+      const randomTopic = await fetchRandomWiki();
+      const topicTitle = randomTopic ? randomTopic.title : "Random Topic";
+
+      // 2. Configure for Speed and "TikTok" style (6-8 scenes)
+      // We override some config values temporarily for this run by passing them directly or modifying state?
+      // Modifying state might be jittery. Ideally 'igniteEngine' or 'runProductionCycle' accepts overrides.
+      // For now, let's just set the topic and run.
+
+      setTopic(topicTitle);
+      // Random scene count 6-8
+      const count = Math.floor(Math.random() * 3) + 6;
+      setSceneCount(count);
+
+      // Force "Public" provider for speed/cost if not set? Or use config?
+      // User requested "ambil dan memuat data gul api publim" -> Public API
+      // We should temporarily force prodMode='wiki' or textProvider='public'
+      // BUT `runProductionCycle` uses `config`.
+      // Let's create a specialized launcher.
+
+      startAutoFeedCycle(topicTitle, count);
+  };
+
+  const startAutoFeedCycle = async (autoTopic: string, autoScenes: number) => {
+      // Specialized version of igniteEngine
+      if(audioCtxRef.current?.state === 'suspended') await audioCtxRef.current.resume();
+
+      setDownloadUrl(null);
+      setPlayingSceneIdx(null);
+      stopRenderRef.current = false;
+
+      // Ensure we don't switch viewMode back to studio if we are already in feed
+      // But `igniteEngine` sets viewMode='studio'. We want to stay in 'feed' technically,
+      // but the CANVAS is in 'studio' layer.
+      // Trick: We let it render in background.
+      // The canvas is currently hidden if viewMode='feed' (opacity-0).
+      // We need it to render there. That's fine.
+
+      setIsBatchRunning(true);
+
+      // Temporary Config Override for this run?
+      // We'll just modify the params passed to fetchScript/ParallelEngine manually or
+      // rely on state updates which might be slow.
+      // Best approach: Just run the cycle.
+      // We need to make sure we use 'public' provider.
+
+      // Hack: We can't easily override `config` inside `runProductionCycle` without changing it.
+      // Let's just update the state and rely on React's update batching or use a timeout.
+      setConfig(prev => ({ ...prev, textProvider: 'public', fastMode: true }));
+      setProdMode('wiki'); // Force Wiki mode
+
+      // Small delay to let state settle
+      setTimeout(() => {
+          runProductionCycle(autoTopic, 0, []);
+      }, 100);
+  };
+
   // Music Logic
   const handleMusicSearch = async () => {
       if (!musicQuery) return;
@@ -236,7 +316,9 @@ export default function MycSupremeV18() {
       setDownloadUrl(null);
       setPlayingSceneIdx(null);
       stopRenderRef.current = false;
-      setViewMode('studio');
+
+      // Only switch to studio if NOT in auto mode
+      if (!isAutoFeedMode) setViewMode('studio');
 
       if (batchSize > 1 && !isBatchRunning) {
           setStep(1);
@@ -442,7 +524,9 @@ export default function MycSupremeV18() {
               topic: currentTitle
           };
           setFeed(prev => [newFeedItem, ...prev]);
-          setViewMode('feed');
+
+          // Force switch to feed if we generated manually
+          if (!isAutoFeedMode) setViewMode('feed');
 
           log(`✅ Done: ${currentTitle}`);
           setPlayingSceneIdx(null);

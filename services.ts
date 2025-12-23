@@ -62,6 +62,22 @@ export const fetchWiki = async (query: string): Promise<{title: string, extract:
     }
 };
 
+export const fetchRandomWiki = async (): Promise<{title: string, extract: string} | null> => {
+    try {
+        // Fetch a random summary
+        const url = `https://id.wikipedia.org/api/rest_v1/page/random/summary`;
+        const res = await secureFetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return {
+            title: data.title,
+            extract: data.extract
+        };
+    } catch (e) {
+        return { title: "Fakta Unik", extract: "Tahukah kamu bahwa dunia ini penuh misteri?" };
+    }
+}
+
 // --- REDDIT SERVICE ---
 export const fetchReddit = async (query: string): Promise<{title: string, content: string} | null> => {
     try {

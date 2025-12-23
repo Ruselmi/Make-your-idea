@@ -8,24 +8,35 @@
 const CORS_PROXIES = [
     "https://corsproxy.io/?",
     "https://api.allorigins.win/raw?url=",
-    "https://thingproxy.freeboard.io/fetch/"
+    "https://thingproxy.freeboard.io/fetch/",
+    "https://cors-anywhere.herokuapp.com/" // Added as backup
 ];
 
 export async function secureFetch(url: string, options?: RequestInit): Promise<Response> {
-    // 1. Try Direct Fetch first (fastest)
+    const finalOptions = {
+        ...options,
+        headers: {
+            ...options?.headers,
+            // 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            // Note: Browsers override User-Agent, but some proxies forward this.
+        }
+    };
+
+    // 1. Try Direct Fetch first (fastest) - mostly for same-origin or CORS-enabled
     try {
-        const response = await fetch(url, options);
+        const response = await fetch(url, finalOptions);
         if (response.ok) return response;
     } catch (e) {
-        // Fallthrough to proxies
+        // Fallthrough
     }
 
-    // 2. Try Proxies (Round Robin or Sequential)
-    for (const proxy of CORS_PROXIES) {
+    // 2. Randomize Proxies to distribute load (Security/Stability)
+    const shuffled = [...CORS_PROXIES].sort(() => 0.5 - Math.random());
+
+    for (const proxy of shuffled) {
         try {
-            // Encode URL for proxy
             const targetUrl = `${proxy}${encodeURIComponent(url)}`;
-            const response = await fetch(targetUrl, options);
+            const response = await fetch(targetUrl, finalOptions);
             if (response.ok) return response;
         } catch (e) {
             continue;
