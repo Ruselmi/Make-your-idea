@@ -1,43 +1,482 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>MYC Supreme V17</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <style>
-      body { font-family: 'Inter', sans-serif; background-color: #000; overflow: hidden; /* Prevent body scroll for app-like feel */ }
-      .font-mono { font-family: 'JetBrains Mono', monospace; }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYC V19 (Single Core)</title>
 
-      /* Custom scrollbar */
-      .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: #050505; }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
-      
-      /* Hide arrows in number input */
-      input[type=number]::-webkit-inner-spin-button, 
-      input[type=number]::-webkit-outer-spin-button { 
-        -webkit-appearance: none; 
-        margin: 0; 
-      }
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #000; color: #fff; overflow: hidden; }
+        .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
+
+    <!-- Import Map for React & Lucide -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+        }
+    }
+    </script>
+
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-  <body class="bg-black text-white h-screen w-screen overflow-hidden flex flex-col">
-    <div id="root" class="flex-1 h-full overflow-hidden"></div>
-  <script type="module" src="/index.tsx"></script>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import {
+            Wand2, Settings, Play, Pause, X,
+            Image as ImageIcon, Sparkles, Monitor, Loader2
+        } from 'lucide-react';
+
+        // --- UTILS ---
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+        // CORS Image Loader
+        const loadCorsImage = (url) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "Anonymous"; // CRITICAL FOR CANVAS
+                img.onload = () => resolve(img);
+                img.onerror = (e) => {
+                    console.error("Image Load Error:", url, e);
+                    // Fallback to a placeholder if it fails
+                    if (url.includes('placehold.co')) {
+                        reject(e);
+                    } else {
+                        const fallback = new Image();
+                        fallback.crossOrigin = "Anonymous";
+                        fallback.onload = () => resolve(fallback);
+                        fallback.src = 'https://placehold.co/720x1280/1a1a1a/FFF?text=Image+Load+Fail';
+                    }
+                };
+                img.src = url;
+            });
+        };
+
+        // --- APP ---
+        function App() {
+            // State
+            const [status, setStatus] = useState('IDLE'); // IDLE, WRITING, ASSETS, RENDERING, DONE
+            const [progress, setProgress] = useState(0);
+            const [topic, setTopic] = useState('');
+            const [config, setConfig] = useState({
+                apiKey: localStorage.getItem('myc_apikey') || '',
+                provider: 'wiki', // wiki, gemini
+                duration: 15,
+                style: 'cinematic',
+                voice: 'default'
+            });
+            const [showSettings, setShowSettings] = useState(false);
+            const [previewUrl, setPreviewUrl] = useState(null);
+            const [logs, setLogs] = useState([]);
+
+            // Refs
+            const canvasRef = useRef(null);
+            const stopRef = useRef(false);
+
+            // Helpers
+            const log = (msg) => {
+                console.log(`[MYC] ${msg}`);
+                setLogs(p => [msg, ...p].slice(0, 5));
+            };
+
+            const updateConfig = (key, val) => {
+                const newC = { ...config, [key]: val };
+                setConfig(newC);
+                if(key === 'apiKey') localStorage.setItem('myc_apikey', val);
+            };
+
+            // --- ENGINE CORE ---
+
+            // 1. Scripting
+            const generateScript = async () => {
+                log(`Generating script for: ${topic}`);
+                setStatus('WRITING');
+
+                let sentences = [];
+
+                try {
+                    // Method A: Wiki (Free, Reliable)
+                    if (config.provider === 'wiki' || !config.apiKey) {
+                        const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`);
+                        if (!res.ok) throw new Error("Wiki not found");
+                        const data = await res.json();
+                        const context = data.extract || "No description found.";
+                        // Split by sentences roughly
+                        sentences = context.match(/[^\.!\?]+[\.!\?]+/g) || [context];
+                        sentences = sentences.slice(0, 5).map(s => s.trim()).filter(s => s.length > 10);
+                    }
+                    // Method B: Gemini (Requires Key)
+                    else if (config.provider === 'gemini') {
+                         const prompt = `Write a short video script about "${topic}". Max 5 short sentences. Return valid JSON array of strings. Style: ${config.style}.`;
+                         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.apiKey}`;
+                         const res = await fetch(url, {
+                             method: 'POST',
+                             headers: {'Content-Type': 'application/json'},
+                             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                         });
+                         const data = await res.json();
+                         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                         if(!text) throw new Error("No AI response");
+                         // Naive cleanup
+                         const cleanJson = text.replace(/```json|```/g, '').trim();
+                         try {
+                            sentences = JSON.parse(cleanJson);
+                         } catch(e) {
+                            sentences = [cleanJson];
+                         }
+                    }
+
+                    if (sentences.length === 0) sentences = [`Here is some information about ${topic}.`, `It is very interesting.`];
+
+                    log(`Script generated: ${sentences.length} lines`);
+                    return sentences.map((text, i) => ({
+                        id: i,
+                        text: text,
+                        keyword: `${topic} ${config.style} ${i}`
+                    }));
+
+                } catch (e) {
+                    log(`Script Error: ${e.message}`);
+                    return [{ id:0, text: `Could not load info about ${topic}.`, keyword: 'error' }];
+                }
+            };
+
+            // 2. Assets (Visuals & Audio)
+            const prepareAssets = async (script) => {
+                setStatus('ASSETS');
+                log("Fetching visuals...");
+
+                const prepared = [];
+                for (let i = 0; i < script.length; i++) {
+                    if (stopRef.current) return null;
+                    const item = script[i];
+
+                    // A. Visuals (Pollinations.ai)
+                    const prompt = encodeURIComponent(`${item.keyword}, high quality, ${config.style}`);
+                    const imgUrl = `https://image.pollinations.ai/prompt/${prompt}?width=720&height=1280&nologo=true&seed=${Math.random()}`;
+
+                    try {
+                        const img = await loadCorsImage(imgUrl);
+                        prepared.push({ ...item, image: img });
+                    } catch (e) {
+                        log(`Img failed for ${i}, using fallback`);
+                        // Use placeholder
+                        try {
+                             const fb = await loadCorsImage('https://placehold.co/720x1280/000/FFF?text=' + encodeURIComponent(item.text.substring(0,10)));
+                             prepared.push({ ...item, image: fb });
+                        } catch(e2) {
+                             prepared.push({ ...item, image: null });
+                        }
+                    }
+                    setProgress(((i + 1) / script.length) * 0.5);
+                }
+                return prepared;
+            };
+
+            // 3. Renderer
+            const renderVideo = async (scenes) => {
+                setStatus('RENDERING');
+                log("Starting render engine...");
+
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+
+                // Audio Context Hack: Play audio via browser speakers,
+                // Record Canvas via MediaRecorder.
+                // NOTE: The resulting file will be silent if we don't merge audio track.
+                // Merging SpeechSynthesis audio into MediaStream is blocked by browser security/tech.
+                // We will render visual-only for export, but play audio for preview.
+
+                const stream = canvas.captureStream(30);
+                const chunks = [];
+                const recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+
+                recorder.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    setPreviewUrl(URL.createObjectURL(blob));
+                    setStatus('DONE');
+                    log("Render complete!");
+                };
+
+                recorder.start();
+
+                for (let i = 0; i < scenes.length; i++) {
+                    if (stopRef.current) { recorder.stop(); return; }
+                    const scene = scenes[i];
+                    log(`Rendering Scene ${i+1}/${scenes.length}`);
+
+                    // Speak
+                    const utterance = new SpeechSynthesisUtterance(scene.text);
+                    utterance.rate = 1.0;
+
+                    let startTime = Date.now();
+                    let speaking = true;
+
+                    utterance.onend = () => { speaking = false; };
+                    utterance.onerror = (e) => { console.error(e); speaking = false; };
+                    window.speechSynthesis.speak(utterance);
+
+                    // Allow at least 3 seconds per scene, or until speech ends
+                    while (speaking || (Date.now() - startTime < 3000)) {
+                         if (stopRef.current) { window.speechSynthesis.cancel(); recorder.stop(); return; }
+
+                         // Timeout safety (max 15s per scene)
+                         if (Date.now() - startTime > 15000) { window.speechSynthesis.cancel(); break; }
+
+                         const elapsed = Date.now() - startTime;
+                         // Ken Burns Effect
+                         // Zoom in slowly
+                         const t = (elapsed % 10000) / 10000;
+
+                         // Draw
+                         ctx.fillStyle = '#000';
+                         ctx.fillRect(0,0, canvas.width, canvas.height);
+
+                         if (scene.image) {
+                             const scale = 1 + (t * 0.2);
+                             const w = canvas.width * scale;
+                             const h = canvas.height * scale;
+                             const x = (canvas.width - w) / 2;
+                             const y = (canvas.height - h) / 2;
+                             ctx.drawImage(scene.image, x, y, w, h);
+                         }
+
+                         // Overlay
+                         const grad = ctx.createLinearGradient(0, canvas.height/2, 0, canvas.height);
+                         grad.addColorStop(0, "transparent");
+                         grad.addColorStop(1, "rgba(0,0,0,0.9)");
+                         ctx.fillStyle = grad;
+                         ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
+
+                         // Text
+                         ctx.font = "bold 40px Inter, sans-serif";
+                         ctx.fillStyle = "white";
+                         ctx.textAlign = "center";
+                         ctx.shadowColor = "black";
+                         ctx.shadowBlur = 10;
+
+                         const words = scene.text.split(' ');
+                         let line = '';
+                         let y = canvas.height - 250;
+
+                         for(let w of words) {
+                             if(ctx.measureText(line + w).width > canvas.width - 100) {
+                                 ctx.fillText(line, canvas.width/2, y);
+                                 line = w + ' ';
+                                 y += 50;
+                             } else {
+                                 line += w + ' ';
+                             }
+                         }
+                         ctx.fillText(line, canvas.width/2, y);
+
+                         // Progress Bar
+                         const totalProg = ((i) / scenes.length) + (Math.min(elapsed/5000, 1) * (1/scenes.length));
+                         setProgress(Math.min(totalProg, 0.99));
+
+                         await sleep(30);
+                    }
+                    window.speechSynthesis.cancel();
+                }
+
+                recorder.stop();
+            };
+
+            // Master Process
+            const startMagic = async () => {
+                if (!topic) { log("Please enter a topic!"); return; }
+                stopRef.current = false;
+                setPreviewUrl(null);
+
+                const script = await generateScript();
+                if (stopRef.current) return;
+
+                const assets = await prepareAssets(script);
+                if (stopRef.current) return;
+
+                await renderVideo(assets);
+            };
+
+            const stopMagic = () => {
+                stopRef.current = true;
+                window.speechSynthesis.cancel();
+                setStatus('IDLE');
+                log("Stopped.");
+            };
+
+            return (
+                <div className="flex flex-col h-screen bg-black text-white relative font-sans">
+
+                    {/* Header */}
+                    <div className="p-6 flex justify-between items-center z-50">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-700 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                <Sparkles className="text-white w-6 h-6" />
+                            </div>
+                            <div>
+                                <h1 className="font-black text-xl tracking-tight leading-none">MYC <span className="text-emerald-500">V19</span></h1>
+                                <p className="text-[9px] text-zinc-500 font-mono tracking-widest mt-1">SINGLE_CORE</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-zinc-900 rounded-full transition">
+                            <Settings className="w-6 h-6 text-zinc-400" />
+                        </button>
+                    </div>
+
+                    {/* Main Stage */}
+                    <div className="flex-1 flex flex-col items-center justify-center relative p-4">
+
+                        {/* Canvas Wrapper */}
+                        <div className="relative aspect-[9/16] h-full max-h-[70vh] bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-800 shadow-2xl">
+                            {previewUrl ? (
+                                <video src={previewUrl} controls autoPlay loop className="w-full h-full object-cover" />
+                            ) : (
+                                <canvas ref={canvasRef} width={720} height={1280} className="w-full h-full object-cover" />
+                            )}
+
+                            {/* Status Overlay */}
+                            {status !== 'IDLE' && status !== 'DONE' && (
+                                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 z-20">
+                                    <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mb-4" />
+                                    <h2 className="text-xl font-bold text-white mb-2">{status}</h2>
+                                    <p className="text-sm text-zinc-400 font-mono mb-6 max-w-xs">{logs[0]}</p>
+                                    <div className="w-48 h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                        <div className="h-full bg-emerald-500 transition-all duration-300" style={{width: `${progress * 100}%`}}></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Idle State */}
+                            {status === 'IDLE' && !previewUrl && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-700 pointer-events-none">
+                                    <Monitor className="w-16 h-16 mb-4 opacity-20" />
+                                    <p className="text-xs font-mono uppercase tracking-widest opacity-50">System Ready</p>
+                                </div>
+                            )}
+                        </div>
+
+                    </div>
+
+                    {/* Controls */}
+                    <div className="p-6 bg-zinc-950/80 backdrop-blur border-t border-zinc-900">
+                        <div className="max-w-md mx-auto space-y-4">
+
+                            {/* Input */}
+                            <div className="relative group">
+                                <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-xl opacity-20 group-hover:opacity-40 transition blur"></div>
+                                <div className="relative flex items-center bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
+                                    <div className="pl-4">
+                                        <Wand2 className="w-5 h-5 text-zinc-500" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={topic}
+                                        onChange={(e) => setTopic(e.target.value)}
+                                        placeholder="What should we create today?"
+                                        className="w-full bg-transparent px-4 py-4 text-sm text-white placeholder-zinc-600 outline-none font-medium"
+                                    />
+                                    {topic && (
+                                        <button onClick={()=>setTopic('')} className="p-3 text-zinc-500 hover:text-white"><X className="w-4 h-4"/></button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Action Button */}
+                            {status === 'IDLE' || status === 'DONE' ? (
+                                <button
+                                    onClick={startMagic}
+                                    className="w-full bg-white text-black font-bold py-4 rounded-xl hover:bg-zinc-200 transition active:scale-95 flex items-center justify-center gap-2 shadow-lg"
+                                >
+                                    <Play className="w-4 h-4 fill-current" /> GENERATE
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={stopMagic}
+                                    className="w-full bg-red-500/10 text-red-500 border border-red-500/50 font-bold py-4 rounded-xl hover:bg-red-500/20 transition active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <Pause className="w-4 h-4 fill-current" /> STOP
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Settings Modal */}
+                    {showSettings && (
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-50 p-6 flex items-end sm:items-center justify-center animate-in fade-in duration-200">
+                            <div className="bg-zinc-900 w-full max-w-sm rounded-2xl border border-zinc-800 p-6 space-y-4 animate-in slide-in-from-bottom-10 shadow-2xl">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="font-bold text-lg flex items-center gap-2"><Settings className="w-4 h-4 text-emerald-500"/> Configuration</h3>
+                                    <button onClick={() => setShowSettings(false)} className="text-zinc-500 hover:text-white"><X className="w-5 h-5"/></button>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2">AI Provider</label>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => updateConfig('provider', 'wiki')} className={`flex-1 py-3 rounded-xl text-xs font-bold transition ${config.provider === 'wiki' ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' : 'bg-zinc-800 hover:bg-zinc-700'}`}>Wiki (Free)</button>
+                                        <button onClick={() => updateConfig('provider', 'gemini')} className={`flex-1 py-3 rounded-xl text-xs font-bold transition ${config.provider === 'gemini' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-zinc-800 hover:bg-zinc-700'}`}>Gemini (Key)</button>
+                                    </div>
+                                </div>
+
+                                {config.provider === 'gemini' && (
+                                    <div className="animate-in slide-in-from-top-2 fade-in">
+                                        <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2">Google Gemini API Key</label>
+                                        <input
+                                            type="password"
+                                            value={config.apiKey}
+                                            onChange={(e) => updateConfig('apiKey', e.target.value)}
+                                            className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-xs font-mono text-emerald-500 outline-none focus:border-emerald-500 transition"
+                                            placeholder="sk-..."
+                                        />
+                                    </div>
+                                )}
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2">Visual Style</label>
+                                    <select
+                                        value={config.style}
+                                        onChange={(e) => updateConfig('style', e.target.value)}
+                                        className="w-full bg-black border border-zinc-800 rounded-xl p-3 text-xs outline-none focus:border-emerald-500 transition cursor-pointer"
+                                    >
+                                        <option value="cinematic">Cinematic Realistic</option>
+                                        <option value="anime">Anime / Manga</option>
+                                        <option value="cyberpunk">Cyberpunk Neon</option>
+                                        <option value="painting">Oil Painting</option>
+                                        <option value="3d">3D Render Cute</option>
+                                    </select>
+                                </div>
+
+                                <button onClick={() => setShowSettings(false)} className="w-full bg-zinc-800 hover:bg-zinc-700 py-3 rounded-xl font-bold text-sm mt-2 transition">
+                                    Done
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
