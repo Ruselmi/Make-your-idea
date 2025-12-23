@@ -17,7 +17,7 @@ import {
   refineScriptPlan 
 } from './utils';
 import { 
-  fetchScript, fetchSmartMusic, fetchTTS, fetchVisual, fetchWiki, fetchBatchVariations, searchItunesLibrary, fetchRandomWiki
+  fetchScript, fetchSmartMusic, fetchTTS, fetchVisual, fetchWiki, fetchBatchVariations, searchItunesLibrary, fetchRandomWiki, fetchRandomIndoMusic
 } from './services';
 import { ParallelEngine, ConcurrencyMode } from './taskEngine';
 import { loadCorsImage } from './network';
@@ -114,11 +114,14 @@ export default function MycSupremeV18() {
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
 
   // Production State
-  const [prodMode, setProdMode] = useState<'wiki' | 'ai' | 'manual'>('ai');
+  const [prodMode, setProdMode] = useState<'wiki' | 'ai' | 'manual' | 'photo_info'>('ai');
   const [topic, setTopic] = useState('');
   const [sceneCount, setSceneCount] = useState(5);
   const [sceneDur, setSceneDur] = useState(7);
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
+
+  // Advanced Creator State
+  const [showCreator, setShowCreator] = useState(false);
 
   // Batch State
   const [batchSize, setBatchSize] = useState(1);
@@ -218,31 +221,24 @@ export default function MycSupremeV18() {
   }, [viewMode, feed.length, isBatchRunning, step]);
 
   const triggerAutoFeedGeneration = async () => {
-      log("♾️ Auto-TikTok: Finding topic...");
+      log("♾️ Auto-TikTok: Selecting mode...");
+
+      // Randomly choose between "Wiki Photo Info" (40%) and "AI Video" (60%)
+      const isPhotoInfo = Math.random() < 0.4;
+
       // 1. Get Random Topic
       const randomTopic = await fetchRandomWiki();
       const topicTitle = randomTopic ? randomTopic.title : "Random Topic";
-
-      // 2. Configure for Speed and "TikTok" style (6-8 scenes)
-      // We override some config values temporarily for this run by passing them directly or modifying state?
-      // Modifying state might be jittery. Ideally 'igniteEngine' or 'runProductionCycle' accepts overrides.
-      // For now, let's just set the topic and run.
 
       setTopic(topicTitle);
       // Random scene count 6-8
       const count = Math.floor(Math.random() * 3) + 6;
       setSceneCount(count);
 
-      // Force "Public" provider for speed/cost if not set? Or use config?
-      // User requested "ambil dan memuat data gul api publim" -> Public API
-      // We should temporarily force prodMode='wiki' or textProvider='public'
-      // BUT `runProductionCycle` uses `config`.
-      // Let's create a specialized launcher.
-
-      startAutoFeedCycle(topicTitle, count);
+      startAutoFeedCycle(topicTitle, count, isPhotoInfo ? 'photo_info' : 'wiki');
   };
 
-  const startAutoFeedCycle = async (autoTopic: string, autoScenes: number) => {
+  const startAutoFeedCycle = async (autoTopic: string, autoScenes: number, mode: 'photo_info' | 'wiki') => {
       // Specialized version of igniteEngine
       if(audioCtxRef.current?.state === 'suspended') await audioCtxRef.current.resume();
 
@@ -250,25 +246,18 @@ export default function MycSupremeV18() {
       setPlayingSceneIdx(null);
       stopRenderRef.current = false;
 
-      // Ensure we don't switch viewMode back to studio if we are already in feed
-      // But `igniteEngine` sets viewMode='studio'. We want to stay in 'feed' technically,
-      // but the CANVAS is in 'studio' layer.
-      // Trick: We let it render in background.
-      // The canvas is currently hidden if viewMode='feed' (opacity-0).
-      // We need it to render there. That's fine.
-
       setIsBatchRunning(true);
 
-      // Temporary Config Override for this run?
-      // We'll just modify the params passed to fetchScript/ParallelEngine manually or
-      // rely on state updates which might be slow.
-      // Best approach: Just run the cycle.
-      // We need to make sure we use 'public' provider.
-
-      // Hack: We can't easily override `config` inside `runProductionCycle` without changing it.
-      // Let's just update the state and rely on React's update batching or use a timeout.
-      setConfig(prev => ({ ...prev, textProvider: 'public', fastMode: true }));
-      setProdMode('wiki'); // Force Wiki mode
+      // Configure based on selected mode
+      if (mode === 'photo_info') {
+          setConfig(prev => ({ ...prev, textProvider: 'public', fastMode: true })); // Fast mode forces turbo
+          setProdMode('photo_info');
+          log("📸 Generating Photo Info Sequence...");
+      } else {
+          setConfig(prev => ({ ...prev, textProvider: 'public', fastMode: true }));
+          setProdMode('wiki'); // Normal Wiki Video
+          log("🎥 Generating Wiki Video...");
+      }
 
       // Small delay to let state settle
       setTimeout(() => {
@@ -350,11 +339,17 @@ export default function MycSupremeV18() {
       try {
           let contextData = "";
           let finalTopic = currentTopic;
+          let imageUrl: string | undefined = undefined;
 
-          if (prodMode === 'wiki') {
+          // 1. DATA GATHERING
+          if (prodMode === 'wiki' || prodMode === 'photo_info') {
               const wikiRes = await fetchWiki(currentTopic || "");
               if (!wikiRes) finalTopic = currentTopic || "Random Fact";
-              else { finalTopic = wikiRes.title; contextData = wikiRes.extract; }
+              else {
+                  finalTopic = wikiRes.title;
+                  contextData = wikiRes.extract;
+                  imageUrl = wikiRes.imageUrl;
+              }
           } else if (prodMode === 'manual') {
               contextData = currentTopic;
               finalTopic = "Manual Script";
@@ -363,8 +358,24 @@ export default function MycSupremeV18() {
           log(`Writing script...`);
           const customStep: DurationStep = { label: 'Custom', val: (sceneCount * sceneDur) / 60, scenes: sceneCount, style: 'Engaging' };
           const planRes = await fetchScript(finalTopic, config, customStep, log, contextData);
-          const refinedScript = refineScriptPlan(planRes.script);
-          const finalScript = config.planningStrategy === 'scene_count' ? refinedScript.slice(0, sceneCount) : refinedScript;
+
+          // 2. SCRIPT REFINEMENT
+          let finalScript = refineScriptPlan(planRes.script);
+          if (config.planningStrategy === 'scene_count') {
+             finalScript = finalScript.slice(0, sceneCount);
+          }
+
+          // 3. PHOTO INFO MODE SPECIFIC
+          if (prodMode === 'photo_info') {
+              // Override visual_keyword with the Wiki Image URL if available
+              if (imageUrl) {
+                  log("📸 Applying Wiki Image to all scenes...");
+                  finalScript = finalScript.map(s => ({
+                      ...s,
+                      visual_keyword: "WIKI_IMAGE:" + imageUrl
+                  }));
+              }
+          }
 
           const finalPlan = { ...planRes, script: finalScript };
           setPlan(finalPlan);
@@ -397,8 +408,23 @@ export default function MycSupremeV18() {
                   } catch(e) {}
               }
               if (!musicData) {
-                  const search = currentPlan.title || config.musicGenre;
-                  musicData = await fetchSmartMusic(config.musicGenre, search, actx, log, config.fastMode);
+                  if (prodMode === 'photo_info') {
+                       // Photo Info Mode -> Random Indo Music
+                       musicData = await fetchRandomIndoMusic().then(t => t ? { buffer: null, info: t.info } : null);
+                       // We need to fetch the actual buffer for playback during render, fetchSmartMusic returns buffer
+                       // but searchItunesLibrary returns just info. Let's try to fetch the preview.
+                       if (musicData && musicData.info.previewUrl) {
+                           try {
+                               const audioRes = await fetch(musicData.info.previewUrl);
+                               const arrayBuffer = await audioRes.arrayBuffer();
+                               const buffer = await actx.decodeAudioData(arrayBuffer);
+                               musicData.buffer = buffer;
+                           } catch(e) {}
+                       }
+                  } else {
+                       const search = currentPlan.title || config.musicGenre;
+                       musicData = await fetchSmartMusic(config.musicGenre, search, actx, log, config.fastMode);
+                  }
               }
           }
 
@@ -412,13 +438,22 @@ export default function MycSupremeV18() {
 
           engineRef.current = new ParallelEngine(
               scenesToRun, 
-              config.fastMode ? 'turbo' : 'balanced',
+              // Force turbo if Photo Info (since visual is static)
+              prodMode === 'photo_info' ? 'turbo' : (config.fastMode ? 'turbo' : 'balanced'),
               async (task, _) => {
                   const { item, idx } = task;
                   try {
                       const voice = item.speaker.toLowerCase().includes('expert') ? config.voiceExpert : config.voiceHost;
-                      const [visualUrl, audioBuf] = await Promise.all([
-                          fetchVisual(config.imgProvider, config.imageKey, item.visual_keyword || topic, fullVisualPrompt, idx, config.fastMode),
+
+                      // Handling Visual: Check if WIKI_IMAGE
+                      let visualUrl = "";
+                      if (item.visual_keyword.startsWith("WIKI_IMAGE:")) {
+                          visualUrl = item.visual_keyword.replace("WIKI_IMAGE:", "");
+                      } else {
+                          visualUrl = await fetchVisual(config.imgProvider, config.imageKey, item.visual_keyword || topic, fullVisualPrompt, idx, config.fastMode);
+                      }
+
+                      const [audioBuf] = await Promise.all([
                           fetchTTS(item.text, config.ttsProvider, actx, config.fastMode, voice, config.userApiKey)
                       ]);
                       const img = await loadCorsImage(visualUrl);
@@ -697,31 +732,69 @@ export default function MycSupremeV18() {
 
             </div>
 
-            {/* 4. BOTTOM ACTION SHEET (Glassmorphism) */}
-            <div className={`absolute bottom-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-xl border-t border-white/10 p-6 transition-transform duration-500 ${viewMode === 'feed' ? 'translate-y-full' : 'translate-y-0'}`}>
+            {/* 4. CREATOR DASHBOARD OVERLAY */}
+            <div className={`absolute bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-xl border-t border-white/10 p-6 transition-all duration-500 ease-in-out ${viewMode === 'feed' ? 'translate-y-full' : 'translate-y-0'} ${showCreator ? 'h-[70%]' : 'h-auto rounded-t-3xl'}`}>
                 
-                {/* Topic Input */}
+                {/* Expand Handle */}
+                <div className="flex justify-center mb-2 -mt-4 pb-2" onClick={() => setShowCreator(!showCreator)}>
+                    <div className="w-12 h-1 bg-zinc-800 rounded-full cursor-pointer hover:bg-zinc-600 transition"></div>
+                </div>
+
+                {/* Dashboard Grid (Shown when Expanded) */}
+                <div className={`grid grid-cols-2 gap-4 mb-6 transition-all duration-300 ${showCreator ? 'opacity-100 block' : 'opacity-0 hidden'}`}>
+                    {/* Mode Select */}
+                    <div className="col-span-2">
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase mb-2 block">Generation Mode</label>
+                        <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800">
+                            {['ai', 'wiki', 'photo_info'].map(m => (
+                                <button key={m} onClick={()=>setProdMode(m as any)} className={`flex-1 py-3 text-[10px] font-bold uppercase rounded-lg transition ${prodMode === m ? 'bg-zinc-800 text-white shadow' : 'text-zinc-600 hover:text-zinc-400'}`}>
+                                    {m === 'photo_info' ? 'Photo Info' : m}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Scene Count */}
+                    <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Scenes</label>
+                        <div className="flex items-center justify-between">
+                            <button onClick={()=>setSceneCount(Math.max(3, sceneCount-1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">-</button>
+                            <span className="font-mono text-xl font-bold">{sceneCount}</span>
+                            <button onClick={()=>setSceneCount(Math.min(20, sceneCount+1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">+</button>
+                        </div>
+                    </div>
+
+                    {/* Duration per Scene */}
+                    <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                        <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-1">Sec/Scene</label>
+                        <div className="flex items-center justify-between">
+                            <button onClick={()=>setSceneDur(Math.max(3, sceneDur-1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">-</button>
+                            <span className="font-mono text-xl font-bold">{sceneDur}</span>
+                            <button onClick={()=>setSceneDur(Math.min(15, sceneDur+1))} className="p-2 bg-black rounded-lg text-zinc-400 hover:text-white">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main Input Row */}
                 <div className="relative group mb-4">
                     <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-xl opacity-20 group-hover:opacity-40 transition blur"></div>
                     <div className="relative bg-zinc-900 rounded-xl flex items-center p-1 border border-zinc-800 group-hover:border-zinc-600 transition">
                          <div className="px-3 border-r border-zinc-800">
-                             <select value={prodMode} onChange={(e) => setProdMode(e.target.value as any)} className="bg-transparent text-[10px] font-bold text-zinc-400 outline-none uppercase tracking-wide cursor-pointer hover:text-white">
-                                 <option value="wiki">Wiki</option>
-                                 <option value="ai">AI</option>
-                                 <option value="manual">Raw</option>
-                             </select>
+                             <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wide">
+                                 {prodMode === 'photo_info' ? 'INFO' : prodMode === 'wiki' ? 'WIKI' : 'AI'}
+                             </span>
                          </div>
                          <input 
                             value={topic} 
                             onChange={(e) => setTopic(e.target.value)} 
-                            placeholder={prodMode === 'wiki' ? "Search Wikipedia..." : "What is the video about?"}
+                            placeholder={prodMode === 'wiki' || prodMode === 'photo_info' ? "Search Topic..." : "Describe your video..."}
                             className="flex-1 bg-transparent p-3 text-sm text-white placeholder-zinc-600 outline-none font-medium"
                          />
                          {topic && <button onClick={() => setTopic('')} className="p-2 text-zinc-500 hover:text-white"><X className="w-4 h-4"/></button>}
                     </div>
                 </div>
 
-                {/* Controls Row */}
+                {/* Footer Controls */}
                 <div className="flex gap-3">
                     {/* Loop Control */}
                     <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl px-2 h-12 w-24 justify-between group hover:border-zinc-600 transition">

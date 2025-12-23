@@ -47,7 +47,7 @@ const fetchOpenAICompatible = async (
 };
 
 // --- WIKIPEDIA SERVICE ---
-export const fetchWiki = async (query: string): Promise<{title: string, extract: string} | null> => {
+export const fetchWiki = async (query: string): Promise<{title: string, extract: string, imageUrl?: string} | null> => {
     try {
         const url = `https://id.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`;
         const res = await secureFetch(url);
@@ -55,14 +55,15 @@ export const fetchWiki = async (query: string): Promise<{title: string, extract:
         const data = await res.json();
         return {
             title: data.title,
-            extract: data.extract
+            extract: data.extract,
+            imageUrl: data.originalimage?.source || data.thumbnail?.source
         };
     } catch (e) {
         return null;
     }
 };
 
-export const fetchRandomWiki = async (): Promise<{title: string, extract: string} | null> => {
+export const fetchRandomWiki = async (): Promise<{title: string, extract: string, imageUrl?: string} | null> => {
     try {
         // Fetch a random summary
         const url = `https://id.wikipedia.org/api/rest_v1/page/random/summary`;
@@ -71,12 +72,27 @@ export const fetchRandomWiki = async (): Promise<{title: string, extract: string
         const data = await res.json();
         return {
             title: data.title,
-            extract: data.extract
+            extract: data.extract,
+            imageUrl: data.originalimage?.source || data.thumbnail?.source
         };
     } catch (e) {
         return { title: "Fakta Unik", extract: "Tahukah kamu bahwa dunia ini penuh misteri?" };
     }
 }
+
+// --- MUSIC HELPERS ---
+export const fetchRandomIndoMusic = async (): Promise<MusicTrack | null> => {
+    // List of popular/random Indonesian search terms to get local music
+    const terms = ['pop indonesia', 'dangdut', 'indie indonesia', 'lagu viral indonesia', 'instrumental indonesia'];
+    const randomTerm = terms[Math.floor(Math.random() * terms.length)];
+    try {
+        const tracks = await searchItunesLibrary(randomTerm);
+        if (tracks.length > 0) {
+            return tracks[Math.floor(Math.random() * tracks.length)];
+        }
+        return null;
+    } catch (e) { return null; }
+};
 
 // --- REDDIT SERVICE ---
 export const fetchReddit = async (query: string): Promise<{title: string, content: string} | null> => {
