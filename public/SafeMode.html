@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MYC V18 - SAFE MODE</title>
+    <style>
+        body { background: #000; color: #0f0; font-family: 'Courier New', Courier, monospace; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { max-width: 600px; width: 100%; border: 1px solid #333; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); }
+        h1 { text-align: center; border-bottom: 1px solid #333; padding-bottom: 10px; color: #ef4444; }
+        .canvas-box { width: 100%; height: 300px; background: #111; margin: 20px 0; border: 1px solid #444; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+        canvas { width: 100%; height: 100%; object-fit: cover; }
+        .controls { display: flex; gap: 10px; margin-bottom: 10px; }
+        input { background: #111; border: 1px solid #444; color: #fff; padding: 10px; flex: 1; font-family: inherit; }
+        button { background: #0f0; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; font-family: inherit; }
+        button:hover { background: #0c0; }
+        button.reset { background: #ef4444; color: #fff; }
+        .log { font-size: 10px; color: #666; height: 100px; overflow-y: auto; border-top: 1px solid #333; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚠️ SYSTEM FAILURE: SAFE MODE</h1>
+        <p>The main application has encountered critical errors. This is a stripped-down, super-stable version.</p>
+
+        <div class="canvas-box">
+            <canvas id="renderCanvas"></canvas>
+        </div>
+
+        <div class="controls">
+            <input type="text" id="topicInput" placeholder="Enter Topic (Wiki)..." value="Technology" />
+            <button onclick="generate()">GENERATE</button>
+        </div>
+
+        <div class="controls">
+            <button class="reset" onclick="resetApp()">ATTEMPT REBOOT</button>
+        </div>
+
+        <div class="log" id="logBox"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('renderCanvas');
+        const ctx = canvas.getContext('2d');
+        const logBox = document.getElementById('logBox');
+
+        // Resize canvas
+        canvas.width = 600;
+        canvas.height = 300;
+
+        function log(msg) {
+            logBox.innerHTML = `> ${msg}<br>` + logBox.innerHTML;
+        }
+
+        async function fetchWiki(query) {
+            log(`Fetching Wiki: ${query}...`);
+            try {
+                const res = await fetch(`https://id.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`);
+                const data = await res.json();
+                return data;
+            } catch (e) {
+                log("Wiki Fetch Failed: " + e.message);
+                return null;
+            }
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(text);
+                u.lang = 'id-ID';
+                window.speechSynthesis.speak(u);
+            }
+        }
+
+        async function generate() {
+            const topic = document.getElementById('topicInput').value;
+            const data = await fetchWiki(topic);
+
+            if (!data) return;
+
+            log(`Data loaded: ${data.title}`);
+            const text = data.extract || "No content found.";
+
+            // Draw
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Random Gradient
+            const grad = ctx.createLinearGradient(0,0, canvas.width, canvas.height);
+            grad.addColorStop(0, '#111');
+            grad.addColorStop(1, '#333');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+
+            // Text
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px monospace';
+            ctx.textAlign = 'center';
+
+            const words = text.split(' ');
+            let line = '';
+            let y = 100;
+
+            for(let w of words) {
+                if(ctx.measureText(line + w).width > 550) {
+                    ctx.fillText(line, 300, y);
+                    line = w + ' ';
+                    y += 30;
+                } else {
+                    line += w + ' ';
+                }
+            }
+            ctx.fillText(line, 300, y);
+
+            // Speak
+            speak(text.substring(0, 200));
+        }
+
+        function resetApp() {
+            localStorage.setItem('myc_crash_count', '0');
+            window.location.href = '/';
+        }
+
+        // Init
+        log("Safe Mode Loaded. Core systems active.");
+        generate();
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Activity, AlertTriangle, RefreshCcw } from 'lucide-react';
+import { Activity, AlertTriangle, RefreshCcw, ShieldCheck } from 'lucide-react';
+import { SystemGuard } from './security/SystemGuard';
 
 interface Props {
   children: ReactNode;
@@ -24,6 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
+    SystemGuard.reportCrash(); // <--- Report the crash
     this.setState({ errorInfo });
   }
 
@@ -53,13 +55,22 @@ export class ErrorBoundary extends Component<Props, State> {
                     )}
                 </div>
 
-                <button
-                    onClick={() => window.location.reload()}
-                    className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 group"
-                >
-                    <RefreshCcw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-                    REBOOT SYSTEM
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => window.location.reload()}
+                        className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 group"
+                    >
+                        <RefreshCcw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
+                        REBOOT
+                    </button>
+                    <button
+                        onClick={() => window.location.href = '/SafeMode.html'}
+                        className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-emerald-500 border border-emerald-500/30 font-bold text-xs rounded-xl transition flex items-center justify-center gap-2"
+                    >
+                        <ShieldCheck className="w-4 h-4" />
+                        SAFE MODE
+                    </button>
+                </div>
             </div>
         </div>
       );
