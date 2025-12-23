@@ -2,11 +2,15 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { AppConfig, ScriptPlan, MusicTrack, DurationStep } from './types';
 import { robustJsonParse, pcmToWavBytes } from './utils';
 import { secureFetch } from './network'; 
+import { KeyVault } from './src/security/KeyVault';
 
 // --- GEMINI SERVICE ---
 const getClient = (config?: AppConfig) => {
   // Prioritize User API Key, then Env Var
-  const key = config?.userApiKey || process.env.API_KEY;
+  const rawKey = config?.userApiKey || process.env.API_KEY;
+  // Decrypt if necessary
+  const key = rawKey?.startsWith('ENC_') ? KeyVault.decrypt(rawKey) : rawKey;
+
   if (!key) {
     throw new Error("API_KEY not found. Please enter it in Settings -> API.");
   }
@@ -22,13 +26,21 @@ const fetchOpenAICompatible = async (
     userPrompt: string,
     temperature: number = 0.7
 ): Promise<string> => {
-    if (!apiKey) throw new Error("API Key required for this provider.");
+    const decKey = apiKey?.startsWith('ENC_') ? KeyVault.decrypt(apiKey) : apiKey;
+    if (!decKey) throw new Error("API Key required for this provider.");
+
+    // Use ProxyRotator logic in fetch if strictly needed, but for OpenAI API it usually requires direct
+    // or specific configured proxies. 'secureFetch' uses ProxyRotator internally.
+    // However, OpenAI endpoints might block public CORS proxies.
+    // For client-side OpenAI, users MUST provide a key. Direct fetch is usually okay if they enabled CORS on their end?
+    // No, OpenAI doesn't allow CORS from browser.
+    // We MUST use the ProxyRotator via secureFetch if we want this to work without a backend.
     
-    const res = await fetch(endpoint, {
+    const res = await secureFetch(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'Authorization': `Bearer ${decKey}`
         },
         body: JSON.stringify({
             model: model,

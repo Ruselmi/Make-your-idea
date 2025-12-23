@@ -21,6 +21,7 @@ import {
 } from './services';
 import { ParallelEngine, ConcurrencyMode } from './taskEngine';
 import { loadCorsImage } from './network';
+import { KeyVault } from './src/security/KeyVault';
 import MiniMoba from './src/MiniMoba';
 
 // --- CONSTANTS ---
@@ -933,11 +934,18 @@ export default function MycSupremeV18() {
                                         </div>
                                         <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
                                             <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2 flex justify-between">
-                                                Gemini API Key
+                                                Gemini API Key (Encrypted Storage)
                                                 {config.userApiKey && <Check className="w-3 h-3 text-emerald-500"/>}
                                             </label>
-                                            <input type="password" value={config.userApiKey} onChange={(e) => setConfig({...config, userApiKey: e.target.value})} placeholder="sk-..." className="w-full bg-black border border-zinc-800 text-emerald-400 text-xs rounded-lg p-2.5 outline-none focus:border-emerald-500 transition font-mono" />
-                                            <p className="text-[9px] text-zinc-600 mt-2">Required for AI generation.</p>
+                                            <input
+                                                type="password"
+                                                value={config.userApiKey?.startsWith('ENC_') ? '********' : config.userApiKey}
+                                                onChange={(e) => setConfig({...config, userApiKey: KeyVault.encrypt(e.target.value)})}
+                                                placeholder={config.userApiKey ? "Key Stored securely" : "Paste sk-..."}
+                                                className="w-full bg-black border border-zinc-800 text-emerald-400 text-xs rounded-lg p-2.5 outline-none focus:border-emerald-500 transition font-mono"
+                                                onFocus={(e) => e.target.value = ''} // Clear on focus to allow overwrite
+                                            />
+                                            <p className="text-[9px] text-zinc-600 mt-2">Keys are obfuscated before storage.</p>
                                         </div>
                                     </div>
                                 )}
