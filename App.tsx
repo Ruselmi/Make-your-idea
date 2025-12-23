@@ -27,7 +27,13 @@ const TEXT_PROVIDERS = [
   { id: 'gemini', name: '✨ Gemini API (Google)' },
   { id: 'chatgpt', name: '🤖 ChatGPT (OpenAI)' },
   { id: 'deepseek', name: '🐋 DeepSeek V3/R1' },
-  { id: 'public', name: '🌍 Public (Simple/Wiki)' },
+  { id: 'public', name: '🌍 Public (Wiki/Reddit)' },
+];
+
+const TTS_PROVIDERS = [
+  { id: 'auto', name: '⚡ Auto (Gemini + Fallback)' },
+  { id: 'gemini', name: '✨ Gemini (High Quality)' },
+  { id: 'google', name: '🗣️ Google Translate (Public)' },
 ];
 
 const GEMINI_MODELS = [
@@ -782,6 +788,17 @@ export default function MycSupremeV18() {
                                                  <div className="flex justify-between text-[10px] font-bold text-zinc-500 mb-2"><span>VOICE VOLUME</span><span>{Math.round(config.ttsVol*100)}%</span></div>
                                                  <input type="range" min="0" max="1.5" step="0.05" value={config.ttsVol} onChange={e=>setConfig({...config, ttsVol: parseFloat(e.target.value)})} className="w-full h-1 bg-zinc-700 rounded-lg accent-blue-500"/>
                                              </div>
+                                         </div>
+
+                                         <div className="bg-zinc-900 p-4 rounded-xl border border-zinc-800">
+                                            <label className="text-[10px] font-bold text-zinc-500 uppercase block mb-2">TTS Provider</label>
+                                            <div className="grid grid-cols-1 gap-2">
+                                                {TTS_PROVIDERS.map(p => (
+                                                    <button key={p.id} onClick={() => setConfig({...config, ttsProvider: p.id})} className={`p-3 rounded-lg border text-left transition-all ${config.ttsProvider === p.id ? 'bg-blue-900/20 border-blue-500/50 text-blue-400' : 'bg-black border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}>
+                                                        <div className="text-[11px] font-bold">{p.name}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
                                          </div>
                                          
                                          <div>

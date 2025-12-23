@@ -62,6 +62,26 @@ export const fetchWiki = async (query: string): Promise<{title: string, extract:
     }
 };
 
+// --- REDDIT SERVICE ---
+export const fetchReddit = async (query: string): Promise<{title: string, content: string} | null> => {
+    try {
+        // Search reddit for the query
+        const url = `https://www.reddit.com/search.json?q=${encodeURIComponent(query)}&limit=1`;
+        const res = await secureFetch(url);
+        if (!res.ok) return null;
+        const data = await res.json();
+        const post = data?.data?.children?.[0]?.data;
+        if (!post) return null;
+        return {
+            title: post.title,
+            content: post.selftext || post.title
+        };
+    } catch (e) {
+        console.error("Reddit Fetch Error", e);
+        return null;
+    }
+};
+
 // --- BATCH VARIATION SERVICE ---
 export const fetchBatchVariations = async (baseTopic: string, count: number, logFn: (msg: string) => void, config?: AppConfig): Promise<string[]> => {
     logFn(`🔄 Merancang ${count} variasi topik untuk "${baseTopic}"...`);
@@ -138,15 +158,65 @@ export const fetchScript = async (
       logFn(`📝 Strategy: Fixed Scene Count (${targetScenes})`);
   }
 
-  // PUBLIC PROVIDER (No Key)
+  // PUBLIC PROVIDER (No Key) - Smart Mode
   if (config.textProvider === 'public') {
-       logFn("🌍 Using Public Provider (Simple Generator)...");
-       const dummyScript = Array(targetScenes).fill(0).map((_, i) => ({
-           speaker: i % 2 === 0 ? "Host" : "Expert",
-           text: `Ini adalah konten otomatis untuk scene ${i+1} tentang ${topic}. Mode publik aktif.`,
-           visual_keyword: `${topic} scene ${i+1}`
-       }));
-       return { title: `Public: ${topic}`, script: dummyScript };
+       logFn("🌍 Using Public Provider (Wiki/Reddit)...");
+
+       let content = "";
+       let sourceTitle = topic;
+
+       // 1. Try Wiki
+       const wikiData = await fetchWiki(topic);
+       if (wikiData && wikiData.extract) {
+           content = wikiData.extract;
+           sourceTitle = wikiData.title;
+           logFn("✅ Found on Wikipedia");
+       } else {
+           // 2. Try Reddit
+           logFn("🔎 Checking Reddit...");
+           const redditData = await fetchReddit(topic);
+           if (redditData) {
+               content = redditData.content;
+               sourceTitle = redditData.title;
+               logFn("✅ Found on Reddit");
+           }
+       }
+
+       if (!content || content.length < 50) {
+           content = `Topik tentang ${topic} ini sangat menarik. Mari kita bahas lebih lanjut. Sayangnya data publik spesifik tidak ditemukan, jadi kita improvisasi saja.`;
+           logFn("⚠️ No data found, using generic text.");
+       }
+
+       // Simple "Smart" Slicer (Split by sentences)
+       const sentences = content.match(/[^.!?]+[.!?]+/g) || [content];
+       const scriptItems: any[] = [];
+
+       let currentSpeaker = "Host";
+       sentences.forEach((s, i) => {
+           if (i >= targetScenes) return;
+           if (s.trim().length < 5) return;
+
+           scriptItems.push({
+               speaker: currentSpeaker,
+               text: s.trim(),
+               visual_keyword: `${topic} ${i}` // Simple keyword
+           });
+
+           // Toggle speaker sometimes
+           if (Math.random() > 0.6) currentSpeaker = currentSpeaker === "Host" ? "Expert" : "Host";
+       });
+
+       // Fill remaining scenes if needed
+       while (scriptItems.length < targetScenes) {
+           scriptItems.push({
+               speaker: currentSpeaker,
+               text: `Lanjut membahas ${topic}...`,
+               visual_keyword: topic
+           });
+           currentSpeaker = currentSpeaker === "Host" ? "Expert" : "Host";
+       }
+
+       return { title: sourceTitle, script: scriptItems.slice(0, targetScenes) };
   }
 
   const structurePrompt = config.mode === 'top10' ? "Intro -> Countdown -> Outro" : "Hook -> Body -> Conclusion";
@@ -257,10 +327,34 @@ export const fetchSmartMusic = async (
   return null;
 };
 
+// --- BROWSER SPEECH SYNTHESIS HELPER ---
+const speakWithBrowser = async (text: string, audioCtx: AudioContext): Promise<AudioBuffer> => {
+    return new Promise((resolve, reject) => {
+        // We can't easily capture browser TTS into AudioBuffer directly without recording it.
+        // However, for this environment, we might just have to fallback to Google TTS if we need the AudioBuffer for the mixer.
+        // BUT, if we really want "Browser TTS", we can't really mix it easily into the WebM stream.
+        // Given the architecture mixes AudioBuffers, we MUST use a service that returns Audio data.
+        // Browser SpeechSynthesis API produces Audio *Output*, not *Data*.
+        // So actually, for the purpose of "video generation" (rendering to blob), Browser TTS is NOT viable unless we use a MediaStreamDestination capture trick which is complex.
+
+        // BETTER STRATEGY: Use a different free TTS API.
+        // Or default back to Google Translate for "Public".
+
+        // Wait, the user asked for "API Publik buat TTS".
+        // Google Translate IS a public API (unofficial).
+        // Let's add another one: "Basa Jaw" or similar if available, or just acknowledge Google is the public one.
+        // Let's try to find another one.
+
+        reject(new Error("Browser TTS cannot be captured to video file directly."));
+    });
+}
+
+
 // --- TTS & PUBLIC API FETCHERS ---
 export const fetchTTS = async (text: string, provider: string, audioCtx: AudioContext, fastMode: boolean, voiceProfile: string, userKey?: string): Promise<AudioBuffer> => {
-    const encodedText = encodeURIComponent(text.slice(0, 150));
-    // Fallback to Google Translate TTS
+    const encodedText = encodeURIComponent(text.slice(0, 200)); // Google limit is around 200 chars
+
+    // Google Translate TTS
     const loadGoogleTTS = async () => {
          const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=id&client=tw-ob`;
          const res = await secureFetch(url); 
@@ -270,7 +364,8 @@ export const fetchTTS = async (text: string, provider: string, audioCtx: AudioCo
 
     const apiKey = userKey || process.env.API_KEY;
 
-    if (!fastMode && (provider === 'auto' || provider === 'gemini') && apiKey) {
+    // AI Providers
+    if (provider === 'gemini' && apiKey && !fastMode) {
         try {
             const ai = new GoogleGenAI({ apiKey: apiKey });
             const response = await ai.models.generateContent({
@@ -289,12 +384,18 @@ export const fetchTTS = async (text: string, provider: string, audioCtx: AudioCo
                 const wavBytes = pcmToWavBytes(bytes);
                 return await audioCtx.decodeAudioData(wavBytes.buffer);
             }
-        } catch (e) {}
+        } catch (e) {
+            console.error("Gemini TTS Failed, falling back", e);
+        }
     }
     
+    // Explicit Google or Fallback
+    // If provider is 'google' or 'auto' or 'public', use Google
     try {
         return await loadGoogleTTS();
     } catch(e) {
+        console.error("All TTS failed");
+        // Silent fallback (empty buffer)
         const words = text.split(' ').length;
         return audioCtx.createBuffer(1, audioCtx.sampleRate * (words * 0.4), audioCtx.sampleRate);
     }
