@@ -1,43 +1,368 @@
+
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>MYC Supreme V17</title>
+    <title>MYC V44 - OMNI CORE</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-      body { font-family: 'Inter', sans-serif; background-color: #000; overflow: hidden; /* Prevent body scroll for app-like feel */ }
-      .font-mono { font-family: 'JetBrains Mono', monospace; }
-      
-      /* Custom scrollbar */
-      .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: #050505; }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
-      
-      /* Hide arrows in number input */
-      input[type=number]::-webkit-inner-spin-button, 
-      input[type=number]::-webkit-outer-spin-button { 
-        -webkit-appearance: none; 
-        margin: 0; 
+      :root {
+        --neon-primary: #f97316;
+        --neon-sec: #06b6d4;
+        --bg-dark: #050505;
+        --glass: rgba(20, 20, 25, 0.6);
+        --border: rgba(255, 255, 255, 0.1);
       }
+      html, body { height: 100%; margin: 0; padding: 0; background-color: var(--bg-dark); color: #e2e8f0; }
+      body { font-family: 'Rajdhani', sans-serif; overflow: hidden; display: flex; flex-direction: column; }
+      
+      /* FUTURISTIC BG */
+      .cyber-grid {
+        background-image: 
+          linear-gradient(rgba(249, 115, 22, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(249, 115, 22, 0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+        position: absolute; inset: 0; z-index: -1;
+      }
+      .cyber-grid::after {
+        content: ''; position: absolute; inset: 0;
+        background: radial-gradient(circle at center, transparent 0%, #050505 90%);
+      }
+
+      /* CUSTOM SCROLLBAR */
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #0a0a0a; }
+      ::-webkit-scrollbar-thumb { background: var(--neon-primary); border-radius: 3px; }
+
+      /* HUD ELEMENTS */
+      .hud-panel {
+        background: var(--glass);
+        backdrop-filter: blur(16px);
+        border: 1px solid var(--border);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+      }
+      .hud-btn {
+        clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+        transition: all 0.2s ease;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .hud-btn:active { transform: scale(0.98); }
+      
+      .neon-text { text-shadow: 0 0 10px rgba(249, 115, 22, 0.4); }
+      .cyan-text { text-shadow: 0 0 10px rgba(6, 182, 212, 0.4); }
+
+      /* RANGE SLIDER */
+      input[type="range"] { -webkit-appearance: none; background: #222; height: 2px; }
+      input[type="range"]::-webkit-slider-thumb { 
+        -webkit-appearance: none; width: 12px; height: 12px; 
+        background: var(--neon-primary); box-shadow: 0 0 10px var(--neon-primary);
+        transform: rotate(45deg); cursor: pointer; 
+      }
+
+      /* SCANLINE ANIMATION */
+      .scanline {
+        position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+        background: rgba(6, 182, 212, 0.5);
+        box-shadow: 0 0 10px rgba(6, 182, 212, 0.8);
+        animation: scan 3s linear infinite;
+        opacity: 0.5; pointer-events: none;
+      }
+      @keyframes scan { 0% { top: 0%; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+
+      /* FILM GRAIN */
+      .film-grain::after {
+        content: ""; position: absolute; inset: 0;
+        background-image: url("https://upload.wikimedia.org/wikipedia/commons/7/76/Noise_overlay.png");
+        opacity: 0.08; pointer-events: none;
+        animation: grain 0.5s steps(5) infinite; z-index: 50;
+      }
+      @keyframes grain {
+        0%, 100% { transform: translate(0,0); }
+        20% { transform: translate(-2%, -2%); }
+        40% { transform: translate(2%, 2%); }
+        60% { transform: translate(-2%, 2%); }
+        80% { transform: translate(2%, -2%); }
+      }
+
+      .h-safe { height: 100vh; height: 100dvh; }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
-  }
-}
-</script>
+    <script type="importmap">
+    {
+      "imports": {
+        "lucide-react": "https://esm.sh/lucide-react@0.263.1",
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "@google/genai": "https://esm.sh/@google/genai"
+      }
+    }
+    </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-black text-white h-screen w-screen overflow-hidden flex flex-col">
-    <div id="root" class="flex-1 h-full overflow-hidden"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
-</html>
+<body class="bg-[#050505] text-gray-200 w-screen overflow-hidden h-safe">
+    <div class="cyber-grid"></div>
+    <div id="root" class="flex-1 w-full h-full relative overflow-y-auto scroll-smooth flex flex-col"></div>
+    <script type="text/babel" data-type="module">
+        import React, { useState, useRef, useEffect } from 'react';
+        import ReactDOM from 'react-dom/client';
+        import { 
+          Settings, Play, Download, Share2, Heart, Plus, Trash2, Edit2, 
+          Terminal, Image as ImageIcon, Music, Mic, Layers, User, Zap, 
+          Globe, Lock, Layout, Video, Sparkles, X, Check, Save, RotateCcw,
+          Volume2, Key, Sliders, Cpu, Box, Palette, ArrowRightCircle, Clock,
+          Copy, Upload, Film, FastForward, Monitor, Gauge, Search, Database, HardDrive,
+          Type, Radio, Activity, Aperture, ArrowDown, Bot, Library, Landmark, BookOpen, RefreshCw,
+          List, FileText
+        } from 'lucide-react';
+        import { GoogleGenAI } from '@google/genai';
+
+        // --- CONSTANTS & DATA ---
+        const LANGUAGES = [
+            { id: 'en', name: 'English (EN)' },
+            { id: 'id', name: 'Indonesia (ID)' },
+            { id: 'es', name: 'Español (ES)' },
+            { id: 'ja', name: 'Japanese (JA)' }
+        ];
+
+        const VIDEO_SIZES = [
+            { id: '9:16', name: 'Portrait (9:16) - TikTok', width: 720, height: 1280 },
+            { id: '16:9', name: 'Landscape (16:9) - YouTube', width: 1280, height: 720 },
+            { id: '1:1', name: 'Square (1:1) - IG Feed', width: 1080, height: 1080 },
+            { id: '4:5', name: 'Social (4:5) - FB/IG', width: 1080, height: 1350 }
+        ];
+
+        const MUSIC_THEMES = [
+            { id: 'none', name: 'None' },
+            { id: 'cinematic', name: 'Cinematic Ambient', url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3' },
+            { id: 'lofi', name: 'Lo-Fi Chill', url: 'https://cdn.pixabay.com/download/audio/2022/05/05/audio_1311f7c858.mp3' },
+            { id: 'upbeat', name: 'Corporate Upbeat', url: 'https://cdn.pixabay.com/download/audio/2024/02/07/audio_c3c46e37d8.mp3' },
+            { id: 'dark', name: 'Dark Tension', url: 'https://cdn.pixabay.com/download/audio/2022/03/10/audio_51d2004248.mp3' },
+            { id: 'happy', name: 'Happy Vibes', url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3' },
+            { id: 'epic', name: 'Epic Trailer', url: 'https://cdn.pixabay.com/download/audio/2022/08/02/audio_884fe92c21.mp3' }
+        ];
+
+        const MODES = [
+            { id: 'normal', name: 'Normal (Standard)', desc: 'Standard Length', maxScenes: 10 },
+            { id: 'fast', name: 'Shorts (Quick)', desc: 'Quick 30s Video', maxScenes: 5 },
+            { id: 'film', name: 'Film Mode', desc: 'Cinematic Long Form', maxScenes: 35 },
+            { id: 'deep_think', name: 'Mega Batch (Deep)', desc: 'Multi-Source Compilation', maxScenes: 15 },
+            { id: 'story', name: 'Story Mode', desc: 'Narrative Style', maxScenes: 30 }
+        ];
+
+        const AVATARS = [
+            { id: 'none', name: 'No Avatar', url: '' },
+            { id: 'ai_bot', name: 'Cyber Bot', url: 'https://cdn-icons-png.flaticon.com/512/4712/4712027.png' },
+            { id: 'news_anchor', name: 'Reporter', url: 'https://cdn-icons-png.flaticon.com/512/3048/3048122.png' },
+            { id: 'wizard', name: 'Mage', url: 'https://cdn-icons-png.flaticon.com/512/3300/3300977.png' },
+            { id: 'custom', name: 'Custom URL', url: '' } 
+        ];
+
+        const TEXT_ENGINES = [
+            { id: 'mock', name: 'Multi-Source: Wiki + DuckDuckGo + Books', type: 'public' },
+            { id: 'gemini', name: 'Private: Google Gemini (Key)', type: 'private' }
+        ];
+
+        const VISUAL_ENGINES = [
+            { id: 'flux', name: 'Flux (Cinematic/Best)', type: 'public' },
+            { id: 'wiki', name: 'Wikipedia (Real Photos)', type: 'public' },
+            { id: 'met_museum', name: 'The Met Museum (History/Art)', type: 'public' },
+            { id: 'chicago', name: 'Art Institute Chicago (Classic)', type: 'public' },
+            { id: 'turbo', name: 'Turbo (Fastest)', type: 'public' },
+            { id: 'anime', name: 'Anime (Japanese)', type: 'public' },
+            { id: 'realism', name: 'Realism (Photo Stock)', type: 'public' },
+            { id: 'pixel', name: 'Pixel Art (Retro)', type: 'public' },
+            { id: 'sketch', name: 'Sketch (Hand Drawn)', type: 'public' },
+            { id: 'render', name: '3D Render (Cute)', type: 'public' },
+            { id: 'picsum', name: 'Picsum (Random Abstract)', type: 'public' }
+        ];
+
+        const AUDIO_ENGINES = [
+            { id: 'google_trans', name: 'Public: Google Translate', type: 'public' },
+            { id: 'native', name: 'Public: Browser Native', type: 'public' }
+        ];
+
+        const ANIMATIONS = {
+            intro: ['None', 'Fade In', 'Netflix Style', 'Disney Swirl', 'Glitch Tech', 'Pixel Storm', 'Cinema Scope', 'Lens Flare', 'Wipe Left', 'Zoom Out', 'Static Fade'],
+            outro: ['None', 'Fade Out', 'Credits Scroll', 'TV Turn Off', 'Circle Close', 'Curtains', 'Copyright Stamp', 'Smash Cut', 'Wipe Left', 'Zoom Out', 'Static Fade'],
+            photo: ['Random (Mixed)', 'Zoom In', 'Zoom Out', 'Pan Left', 'Pan Right', 'Pan Up', 'Pan Down', 'Rotate CW', 'Rotate CCW', 'Wobble', 'Heartbeat']
+        };
+
+        // --- ROBUST FETCHING & UTILS ---
+        
+        const fetchWithProxy = async (url) => {
+            const proxies = [
+                u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+                u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+                u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+            ];
+            for (const p of proxies) {
+                try {
+                    const res = await fetch(p(url));
+                    if (res.ok) return res;
+                } catch(e) { console.warn("Proxy failed", e); }
+            }
+            throw new Error("All proxies failed");
+        };
+
+        const fetchDuckData = async (query) => {
+            try {
+                const res = await fetchWithProxy(`https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json`);
+                const json = await res.json();
+                return json.Abstract || json.RelatedTopics?.[0]?.Text || null;
+            } catch (e) { console.warn("DuckDuckGo failed", e); return null; }
+        };
+
+        const fetchBookData = async (query) => {
+            try {
+                const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=1`);
+                const json = await res.json();
+                if (json.docs && json.docs.length > 0) {
+                     const firstBook = json.docs[0];
+                     return firstBook.first_sentence ? firstBook.first_sentence[0] : null;
+                }
+                return null;
+            } catch (e) { return null; }
+        };
+
+        const fetchMetMuseumImage = async (query) => {
+            try {
+                const searchRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/search?q=${encodeURIComponent(query)}&hasImages=true`);
+                const searchJson = await searchRes.json();
+                if (!searchJson.objectIDs || searchJson.objectIDs.length === 0) return null;
+                const idx = Math.floor(Math.random() * Math.min(5, searchJson.objectIDs.length));
+                const objId = searchJson.objectIDs[idx];
+                const objRes = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${objId}`);
+                const objJson = await objRes.json();
+                return objJson.primaryImage || objJson.primaryImageSmall || null;
+            } catch(e) { return null; }
+        };
+
+        const fetchChicagoImage = async (query) => {
+             try {
+                const res = await fetch(`https://api.artic.edu/api/v1/artworks/search?q=${encodeURIComponent(query)}&limit=3&fields=id,image_id`);
+                const json = await res.json();
+                if(json.data && json.data.length > 0) {
+                     const item = json.data[Math.floor(Math.random()*json.data.length)];
+                     if(item.image_id) return `https://www.artic.edu/iiif/2/${item.image_id}/full/843,/0/default.jpg`;
+                }
+                return null;
+             } catch(e) { return null; }
+        };
+
+        const fetchWikiImage = async (query) => {
+            try {
+                const searchRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`);
+                const searchJson = await searchRes.json();
+                if(!searchJson.query?.search?.length) return null;
+                const title = searchJson.query.search[0].title;
+                const imgRes = await fetch(`https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&titles=${encodeURIComponent(title)}&pithumbsize=1024&format=json&origin=*`);
+                const imgJson = await imgRes.json();
+                const pages = imgJson.query.pages;
+                const pageId = Object.keys(pages)[0];
+                return pages[pageId].thumbnail?.source || null;
+            } catch(e) { return null; }
+        };
+
+        const fetchVisualRobust = async (query, config, idx, mainTopic) => {
+            if (query && (query.startsWith('http') || query.startsWith('data:'))) return query;
+            const seed = Math.floor(Math.random() * 1000000) + idx;
+            let finalUrl = null;
+
+            try {
+                if (config.visualSource === 'met_museum') finalUrl = await fetchMetMuseumImage(query);
+                else if (config.visualSource === 'chicago') finalUrl = await fetchChicagoImage(query);
+                else if (config.visualSource === 'wiki') finalUrl = await fetchWikiImage(query);
+            } catch (e) { console.warn("Primary engine failed", e); }
+
+            if (!finalUrl && !['met_museum', 'chicago', 'wiki'].includes(config.visualSource) && config.visualSource !== 'picsum') {
+                const baseUrl = 'https://image.pollinations.ai/prompt/';
+                const commonParams = `?width=1280&height=720&nologo=true&seed=${seed}`;
+                let finalPrompt = query;
+                let model = 'flux';
+
+                if (config.visualSource === 'flux') finalPrompt = `cinematic shot of ${query}, highly detailed, 8k, dramatic lighting, movie scene`;
+                else if (config.visualSource === 'turbo') { model = 'turbo'; finalPrompt = `${query}, vivid colors, digital art`; }
+                else if (config.visualSource === 'anime') finalPrompt = `anime style artwork of ${query}, studio ghibli, makoto shinkai, highly detailed, 2d`;
+                else if (config.visualSource === 'realism') finalPrompt = `photorealistic raw photo of ${query}, 8k uhd, dslr, soft lighting, professional stock photo`;
+                else if (config.visualSource === 'pixel') { model = 'turbo'; finalPrompt = `pixel art of ${query}, 8 bit, retro game asset, clean lines, sprite`; }
+                else if (config.visualSource === 'sketch') { model = 'turbo'; finalPrompt = `pencil sketch of ${query}, black and white, artistic, rough drawing, charcoal`; }
+                else if (config.visualSource === 'render') finalPrompt = `3d render of ${query}, cute, pixar style, clay material, isometric, blender`;
+                
+                return `${baseUrl}${encodeURIComponent(finalPrompt)}${commonParams}&model=${model}`; 
+            }
+            
+            if (!finalUrl) finalUrl = await fetchWikiImage(query);
+            if (!finalUrl && mainTopic) finalUrl = await fetchWikiImage(mainTopic);
+            if (!finalUrl || config.visualSource === 'picsum') finalUrl = `https://picsum.photos/seed/${seed}/1280/720`;
+
+            return finalUrl;
+        };
+
+        const fetchTTSRobust = async (text, ctx, config) => {
+            if (config.audioSource === 'native') return null; 
+            const lang = config.lang || 'en';
+            if (!text || text.trim().length === 0) return null;
+            const MAX_LEN = 200; 
+            let safeText = text || ''; 
+            if (safeText.length > MAX_LEN) {
+                const lastSpace = safeText.lastIndexOf(' ', MAX_LEN);
+                safeText = safeText.substring(0, lastSpace > 0 ? lastSpace : MAX_LEN);
+            }
+            const urls = [
+                `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${encodeURIComponent(safeText)}`,
+                `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(safeText)}&tl=${lang}&client=tw-ob`
+            ];
+            for (const url of urls) {
+                try {
+                    const res = await fetchWithProxy(url);
+                    const arrayBuffer = await res.arrayBuffer();
+                    if (arrayBuffer.byteLength < 100) throw new Error("Audio too small/empty");
+                    const header = new Uint8Array(arrayBuffer.slice(0, 50));
+                    const textHeader = new TextDecoder().decode(header).toLowerCase();
+                    if(textHeader.includes('<!doctype') || textHeader.includes('<html') || textHeader.includes('error')) {
+                        throw new Error("Proxy returned HTML/Error instead of Audio");
+                    }
+                    return await ctx.decodeAudioData(arrayBuffer);
+                } catch(e) { console.warn(`TTS Attempt Failed: ${e.message}`); }
+            }
+            return null; 
+        };
+
+        const fetchMusic = async (ctx, themeId, customSearch) => {
+            let url = '';
+            if (customSearch && customSearch.startsWith('http')) {
+                url = customSearch;
+            } else {
+                const theme = MUSIC_THEMES.find(t => t.id === themeId);
+                if (theme) url = theme.url;
+            }
+            if (!url) return null;
+            try {
+                const res = await fetchWithProxy(url);
+                return await ctx.decodeAudioData(await res.arrayBuffer());
+            } catch(e) { console.warn("Music load failed", e); return null; }
+        };
+
+        const fetchWikiData = async (query, lang, mode, isTurbo = false) => {
+            try {
+                const searchRes = await fetch(`https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`);
+                const searchData = await searchRes.json();
+                if (!searchData.query?.search?.length) return null;
+                let titlesToFetch = [searchData.query.search[0].title];
+                if (mode !== 'fast') {
+                    if (searchData.query.search.length > 1) titlesToFetch.push(searchData.query.search[1].title);
+                    if (searchData.query.search.length > 2 && mode === 'deep_think') titlesToFetch.push(searchData.query.search[2].title);
+                }
+                const fetchPromises = titlesToFetch.map(async (title) => {
+                    let url = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&titles=${encodeURIComponent(title)}&format=json&origin=*`;
+                    let res = await fetch(url);
+                    let data = await res.json();
+                    let pageId = Object.keys(data.query.pages)[0];
+                    l
