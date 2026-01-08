@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Nusantara Game Hub v14.7 (Stability Fix)</title>
+    <title>Nusantara Game Hub v14.8 (Logic Fix)</title>
     
     <!-- LIBRARIES -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -123,8 +123,8 @@
     <section id="screen-home" class="screen items-center justify-center bg-[url('https://images.unsplash.com/photo-1529699211952-734e80c4d42b?q=80&w=1000&auto=format&fit=crop')] bg-cover bg-center z-50">
         <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
         <div class="glass p-6 sm:p-8 rounded-3xl text-center w-[90%] max-w-md mx-4 animate__animated animate__zoomIn relative z-10 border-t border-white/20">
-            <h1 class="text-4xl sm:text-5xl font-black mb-1 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-tighter drop-shadow-sm">NGH v14.7</h1>
-            <button onclick="window.ui.showHistory()" class="text-xs text-slate-400 font-mono border border-slate-600 px-3 py-1 rounded-full hover:bg-white/10 transition mb-6">v14.7 • Stability Fix</button>
+            <h1 class="text-4xl sm:text-5xl font-black mb-1 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500 tracking-tighter drop-shadow-sm">NGH v14.8</h1>
+            <button onclick="window.ui.showHistory()" class="text-xs text-slate-400 font-mono border border-slate-600 px-3 py-1 rounded-full hover:bg-white/10 transition mb-6">v14.8 • Logic Fix</button>
             
             <div class="mb-4 flex gap-2 bg-black/40 p-1 rounded-xl">
                 <input type="text" id="input-name" placeholder="Nickname" class="flex-1 p-3 rounded-lg bg-transparent text-white text-center font-bold outline-none placeholder:text-slate-500 min-w-0">
@@ -151,20 +151,20 @@
             <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Riwayat Update</h2>
             <div class="scroll-y flex-1 pr-2">
                 <div class="timeline-container">
+                     <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-ver">v14.8 (Sekarang)</div>
+                        <div class="timeline-content">Perbaikan logika UNO: Draw 2 jadi +2, Wild Draw jadi +4, dukungan SKIP ALL, dan logika stacking No Mercy lebih stabil.</div>
+                    </div>
                     <div class="timeline-item">
                         <div class="timeline-dot"></div>
-                        <div class="timeline-ver">v14.7 (Sekarang)</div>
+                        <div class="timeline-ver">v14.7</div>
                         <div class="timeline-content">Perbaikan Bug Kritis: TypeError saat inisialisasi deck dan pencegahan crash pada mode UNO War/Chaos.</div>
                     </div>
                     <div class="timeline-item">
                         <div class="timeline-dot"></div>
                         <div class="timeline-ver">v14.6</div>
                         <div class="timeline-content">Fix Logika Flip: Kartu fisik 2 sisi dan animasi putar 3D.</div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="timeline-dot"></div>
-                        <div class="timeline-ver">v14.5</div>
-                        <div class="timeline-content">Card Snap Scroll & UI Focus.</div>
                     </div>
                 </div>
             </div>
@@ -376,7 +376,7 @@
     </div>
 
     <script>
-        const PEER_PREFIX = "NGH-V14-7-";
+        const PEER_PREFIX = "NGH-V14-8-";
 
         window.utils = {
             randomCode: () => Math.random().toString(36).substring(2, 6).toUpperCase(),
@@ -447,7 +447,10 @@
             render: () => { if(window.state.gameMode.includes('UNO')) window.ui.renderUno(); else window.ui.renderChess(); },
             createCardHTML: (val, color, isSmall=false) => {
                 const displayVal = val.replace('WILD','W').replace('FLIP','F');
-                let icon = displayVal; if(val==='skip') icon = '<i class="fa-solid fa-ban"></i>'; else if(val==='reverse') icon = '<i class="fa-solid fa-rotate"></i>';
+                let icon = displayVal;
+                if(val==='skip') icon = '<i class="fa-solid fa-ban"></i>';
+                else if(val==='skip_all') icon = '<i class="fa-solid fa-ban text-red-500"></i>';
+                else if(val==='reverse') icon = '<i class="fa-solid fa-rotate"></i>';
                 return `<div class="card-oval ${isSmall?'opacity-50':''}"><span class="big-symbol" style="color:${color==='black'?'white':'inherit'}">${icon}</span></div><div class="corner-val tl">${displayVal}</div><div class="corner-val br">${displayVal}</div>`;
             },
             renderUno: () => {
@@ -734,6 +737,7 @@
                         cards.push({ l: {type:lType, val:lVal, color:lCol}, d: {type:dType, val:dVal, color:dCol} });
                     };
 
+                    // 1. FLIP CARDS (Only for UNO_FLIP)
                     if(m === 'UNO_FLIP') {
                         cols.forEach((c, i) => {
                             addPair('flip', 'FLIP', c, 'flip', 'FLIP', dCols[i]);
@@ -741,33 +745,57 @@
                         });
                     }
 
+                    // 2. CHAOS MODE (All Wilds)
                     if(m === 'UNO_CHAOS') { 
                         for(let i=0;i<108;i++) addPair('wild', 'WILD', 'black', 'wild', 'WILD', 'black');
-                    } else {
-                        if(m !== 'UNO_WAR') {
-                            cols.forEach((c, i) => {
-                                addPair('num', '0', c, 'num', '0', dCols[i]);
-                                for(let n=1; n<=9; n++) {
-                                    addPair('num', n+'', c, 'num', n+'', dCols[i]);
-                                    addPair('num', n+'', c, 'num', n+'', dCols[i]);
-                                }
-                            });
+
+                        const finalCards = window.utils.shuffle(cards).map((c, i) => ({id:i, l:c.l, d:c.d}));
+                        window.state.game.cards = finalCards;
+                        window.state.game.drawPile = finalCards.map(c => c.id);
+                        return; // Exit early for Chaos
+                    }
+
+                    // 3. NUMBERS (0-9)
+                    if(m !== 'UNO_WAR') { // WAR has no numbers
+                        cols.forEach((c, i) => {
+                            addPair('num', '0', c, 'num', '0', dCols[i]);
+                            for(let n=1; n<=9; n++) {
+                                addPair('num', n+'', c, 'num', n+'', dCols[i]);
+                                addPair('num', n+'', c, 'num', n+'', dCols[i]);
+                            }
+                        });
+                    }
+
+                    // 4. ACTION CARDS
+                    if(m !== 'UNO_ZEN') { // ZEN has only numbers (peaceful)
+                        cols.forEach((c, i) => {
+                            // Draw 2 (+2) / Dark Draw 5 (+5)
+                            addPair('draw2', '+2', c, 'draw5', '+5', dCols[i]);
+                            addPair('draw2', '+2', c, 'draw5', '+5', dCols[i]);
+
+                            // Skip / Dark Skip Everyone
+                            addPair('skip', 'SKIP', c, 'skip_all', 'SKIP ALL', dCols[i]);
+                            addPair('skip', 'SKIP', c, 'skip_all', 'SKIP ALL', dCols[i]);
+
+                            // Reverse / Dark Reverse
+                            addPair('reverse', 'REV', c, 'reverse', 'REV', dCols[i]);
+                            addPair('reverse', 'REV', c, 'reverse', 'REV', dCols[i]);
+                        });
+
+                        // Wilds
+                        for(let j=0; j<4; j++) {
+                            // Wild / Dark Wild
+                            addPair('wild', 'WILD', 'black', 'wild', 'WILD', 'black');
+
+                            // Wild Draw 4 (+4) / Dark Wild Draw (+6)
+                            addPair('wild_draw', '+4', 'black', 'wild_draw', '+6', 'black');
                         }
 
-                        if(m !== 'UNO_ZEN') {
-                            cols.forEach((c, i) => {
-                                addPair('draw2', '+1', c, 'draw2', '+5', dCols[i]);
-                                addPair('draw2', '+1', c, 'draw2', '+5', dCols[i]);
-                                addPair('skip', 'SKIP', c, 'skip', 'SKIP ALL', dCols[i]);
-                                addPair('skip', 'SKIP', c, 'skip', 'SKIP ALL', dCols[i]);
-                                addPair('reverse', 'REV', c, 'reverse', 'REV', dCols[i]);
-                                addPair('reverse', 'REV', c, 'reverse', 'REV', dCols[i]);
-                            });
-
-                            for(let j=0; j<4; j++) {
-                                addPair('wild', 'W', 'black', 'wild', 'W', 'black');
-                                addPair('wild_draw', '+2', 'black', 'wild_draw', 'COLOR', 'black');
-                            }
+                        // NO MERCY EXTRAS
+                        if(m === 'UNO_NO_MERCY') {
+                             for(let k=0; k<4; k++) {
+                                 addPair('draw10', '+10', 'black', 'draw10', '+10', 'black');
+                             }
                         }
                     }
 
@@ -789,17 +817,27 @@
                     if(act==='PLAY') {
                         const top=window.game.uno.getTop(), c=s.currentSide==='light'?s.cards[pay.cid].l:s.cards[pay.cid].d;
                         let ok=(c.color==='black'||c.color===(s.currentColor||top.color)||c.val===top.val);
-                        if(s.stackCount>0) ok=(c.val.includes('+')&&parseInt(c.val)>=parseInt(top.val));
+                        if(s.stackCount>0) ok=(c.val.includes('+')&&parseInt(c.val.replace('+',''))>=parseInt(top.val.replace('+',''))); // Check stacking value
+
                         if(ok) {
                             if(s.hands[pid].length===2&&!s.unoCalled[pid]) for(let i=0;i<2;i++) if(s.drawPile.length) s.hands[pid].push(s.drawPile.pop());
                             s.hands[pid]=s.hands[pid].filter(x=>x!==pay.cid); s.discardPile.push(pay.cid); s.currentColor=(c.color==='black')?pay.col:null; s.unoCalled[pid]=false;
-                            if(c.type.includes('draw')||c.type==='plus10') s.stackCount+=parseInt(c.val.replace('+',''));
+
+                            // Stack Logic Fixed
+                            if(c.type.includes('draw') || c.val.includes('+')) {
+                                const val = parseInt(c.val.replace('+',''));
+                                if(!isNaN(val)) s.stackCount += val;
+                            }
                             
                             if(c.type==='flip') {
                                 s.currentSide=s.currentSide==='light'?'dark':'light';
                             }
                             
-                            let sk=0; if(c.type==='skip') sk=1; if(c.type==='reverse') { if(pList.length===2) sk=1; else s.direction*=-1; }
+                            let sk=0;
+                            if(c.type==='skip') sk=1;
+                            if(c.type==='skip_all') sk = pList.length - 1; // Play again (effectively)
+                            if(c.type==='reverse') { if(pList.length===2) sk=1; else s.direction*=-1; }
+
                             if(s.hands[pid].length===0) return {up:true, msg:`${pList.find(p=>p.id===pid).name} MENANG!`};
                             window.game.uno.next(sk); return {up:true};
                         }
