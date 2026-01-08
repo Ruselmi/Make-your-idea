@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nusantara Ludo (4 Player)</title>
+    <title>Nusantara Ludo v2.0 (Audio)</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -65,6 +65,23 @@
         @keyframes roll { 0% { transform: rotateX(0) rotateY(0); } 100% { transform: rotateX(360deg) rotateY(360deg); } }
 
         .hidden { display: none !important; }
+
+        /* AUDIO PLAYER STYLES */
+        #music-widget {
+            position: fixed; bottom: 20px; right: 20px; z-index: 100;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
+            padding: 8px 16px; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            max-width: 90%; transition: all 0.3s;
+        }
+        #music-widget:hover { transform: scale(1.02); border-color: rgba(255,255,255,0.3); }
+        .marquee { overflow: hidden; white-space: nowrap; max-width: 150px; font-size: 10px; color: #fbbf24; font-weight: bold; }
+        .visualizer { display: flex; gap: 2px; height: 10px; align-items: flex-end; }
+        .visualizer div { width: 3px; background: #fbbf24; animation: eq 0.5s infinite alternate; }
+        .visualizer div:nth-child(2) { animation-delay: 0.1s; }
+        .visualizer div:nth-child(3) { animation-delay: 0.2s; }
+        @keyframes eq { 0% { height: 2px; } 100% { height: 100%; } }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen bg-[url('https://images.unsplash.com/photo-1605218427306-635ba2439715?q=80&w=1000&auto=format&fit=crop')] bg-cover">
@@ -78,12 +95,12 @@
         <div class="glass p-6 rounded-2xl mb-4">
             <input type="text" id="input-name" placeholder="Nama Kamu" class="w-full bg-slate-800 p-3 rounded-lg text-center font-bold text-white mb-4 outline-none border border-slate-600 focus:border-yellow-400">
             <div class="grid grid-cols-2 gap-3">
-                <button onclick="app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
-                <button onclick="app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
+                <button onclick="window.audio.playSfx('click'); app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
+                <button onclick="window.audio.playSfx('click'); app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
             </div>
             <div id="join-input-area" class="hidden mt-4">
                 <input type="text" id="input-room" placeholder="Kode Room" class="w-full bg-slate-800 p-3 rounded-lg text-center font-mono uppercase text-xl mb-2 border border-slate-600">
-                <button onclick="app.joinRoom()" class="w-full bg-yellow-500 text-black py-2 rounded-lg font-bold">MASUK</button>
+                <button onclick="window.audio.playSfx('click'); app.joinRoom()" class="w-full bg-yellow-500 text-black py-2 rounded-lg font-bold">MASUK</button>
             </div>
         </div>
         <button onclick="window.location.href='index.html'" class="text-xs text-slate-500 hover:text-white transition">KEMBALI KE MENU UTAMA</button>
@@ -154,6 +171,30 @@
         </div>
     </div>
 
+    <!-- MUSIC WIDGET -->
+    <div id="music-widget" class="animate__animated animate__fadeInUp">
+        <div class="visualizer"><div></div><div></div><div></div></div>
+        <div class="flex flex-col">
+            <div id="music-title" class="marquee">Memuat Musik...</div>
+            <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
+        </div>
+        <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-volume-high"></i></button>
+        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs"><i class="fa-solid fa-search"></i></button>
+    </div>
+
+    <!-- MUSIC SEARCH MODAL -->
+    <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
+            <button onclick="document.getElementById('modal-music').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cari Lagu</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="music-search-input" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-white border border-slate-700 outline-none" placeholder="Judul lagu / Artis...">
+                <button onclick="window.audio.search()" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+            </div>
+            <div id="music-results" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs"></div>
+        </div>
+    </div>
+
     <!-- MODAL WIN -->
     <div id="modal-win" class="fixed inset-0 z-50 bg-black/90 hidden flex items-center justify-center p-4">
         <div class="bg-slate-800 p-8 rounded-2xl text-center border border-yellow-500/50">
@@ -165,6 +206,131 @@
 
     <script>
         const PEER_PREFIX = "NGH-LUDO-V1-";
+
+        // AUDIO SYSTEM
+        class AudioManager {
+            constructor() {
+                this.bgm = new Audio();
+                this.bgm.volume = 0.3;
+                this.bgm.onended = () => this.handleTrackEnd();
+                this.isMuted = false;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Init Random Indo
+                this.playRandomIndo();
+            }
+
+            playSfx(type) {
+                if(this.isMuted) return;
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                o.connect(g);
+                g.connect(this.ctx.destination);
+
+                if(type === 'click') {
+                    o.type = 'sine'; o.frequency.value = 800;
+                    g.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.1);
+                    o.start(); o.stop(this.ctx.currentTime + 0.1);
+                } else if (type === 'dice') {
+                    o.type = 'square'; o.frequency.value = 400;
+                    g.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.2);
+                    o.start(); o.stop(this.ctx.currentTime + 0.2);
+                } else if (type === 'move') {
+                    o.type = 'triangle'; o.frequency.value = 600;
+                    g.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.15);
+                    o.start(); o.stop(this.ctx.currentTime + 0.15);
+                } else if (type === 'win') {
+                    o.type = 'square';
+                    o.frequency.setValueAtTime(400, this.ctx.currentTime);
+                    o.frequency.setValueAtTime(600, this.ctx.currentTime + 0.1);
+                    o.frequency.setValueAtTime(800, this.ctx.currentTime + 0.2);
+                    g.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5);
+                    o.start(); o.stop(this.ctx.currentTime + 0.5);
+                }
+            }
+
+            playMusic(url, title, artist) {
+                this.bgm.src = url;
+                this.bgm.play().catch(e => console.log("Autoplay blocked", e));
+                this.updateUI(title, artist);
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                this.bgm.muted = this.isMuted;
+                document.getElementById('btn-mute').innerHTML = this.isMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+                document.querySelector('.visualizer').style.opacity = this.isMuted ? 0 : 1;
+            }
+
+            async playRandomIndo() {
+                const terms = ['Indonesia Pop', 'Lagu Indonesia', 'Indo Hits', 'Dangdut', 'Band Indonesia'];
+                const term = terms[Math.floor(Math.random()*terms.length)];
+                this.fetchAndPlay(term, true);
+            }
+
+            async fetchAndPlay(term, random=false) {
+                try {
+                    const offset = random ? Math.floor(Math.random() * 50) : 0;
+                    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&limit=1&offset=${offset}&media=music&country=ID`);
+                    const data = await res.json();
+                    if(data.results && data.results.length > 0) {
+                        const track = data.results[0];
+                        if(state.myIndex === 0) { // I am Host
+                            app.send({type: 'MUSIC_SYNC', url: track.previewUrl, title: track.trackName, artist: track.artistName});
+                        }
+                        this.playMusic(track.previewUrl, track.trackName, track.artistName);
+                    }
+                } catch(e) { console.error("Music fetch fail", e); }
+            }
+
+            handleTrackEnd() {
+                if(state.myIndex === 0) {
+                    this.playRandomIndo();
+                }
+            }
+
+            openSearch() {
+                document.getElementById('modal-music').classList.remove('hidden');
+            }
+
+            async search() {
+                const q = document.getElementById('music-search-input').value;
+                if(!q) return;
+                const list = document.getElementById('music-results');
+                list.innerHTML = '<div class="text-center animate-pulse">Mencari...</div>';
+
+                try {
+                    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=10&media=music&country=ID`);
+                    const data = await res.json();
+                    list.innerHTML = '';
+                    data.results.forEach(t => {
+                        const div = document.createElement('div');
+                        div.className = "flex justify-between items-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer";
+                        div.innerHTML = `<div class="truncate w-48"><div class="font-bold text-yellow-400">${t.trackName}</div><div class="text-[10px] text-slate-400">${t.artistName}</div></div><button class="text-xs bg-blue-600 px-2 py-1 rounded"><i class="fa-solid fa-play"></i></button>`;
+                        div.onclick = () => {
+                            if(state.myIndex === 0) { // I am host
+                                app.send({type: 'MUSIC_SYNC', url: t.previewUrl, title: t.trackName, artist: t.artistName});
+                                this.playMusic(t.previewUrl, t.trackName, t.artistName);
+                            } else {
+                                app.sendHost({type: 'REQ_MUSIC', url: t.previewUrl, title: t.trackName, artist: t.artistName});
+                                alert("Request dikirim ke Host");
+                            }
+                            document.getElementById('modal-music').classList.add('hidden');
+                        };
+                        list.appendChild(div);
+                    });
+                } catch(e) { list.innerHTML = 'Error.'; }
+            }
+
+            updateUI(t, a) {
+                document.getElementById('music-title').innerText = t;
+                document.getElementById('music-artist').innerText = a;
+            }
+        }
 
         // UTILS
         const utils = {
@@ -182,6 +348,7 @@
             showWin: (name) => {
                 document.getElementById('winner-name').innerText = name;
                 document.getElementById('modal-win').classList.remove('hidden');
+                window.audio.playSfx('win');
             },
             updateNames: (players) => {
                 players.forEach((p, i) => {
@@ -192,6 +359,7 @@
                 const d = document.getElementById('dice-cube');
                 const v = document.getElementById('dice-val');
                 d.classList.add('rolling');
+                window.audio.playSfx('dice');
                 setTimeout(() => {
                     d.classList.remove('rolling');
                     const rot = {
@@ -203,14 +371,8 @@
                 }, 500);
             },
             renderBoard: () => {
-                // Generate path cells
                 const board = document.querySelector('.ludo-board');
-                // Clear existing cells (keep bases and center)
                 document.querySelectorAll('.cell').forEach(e => e.remove());
-
-                // PATH DEFINITIONS (Simplified coordinate map)
-                // 15x15 Grid. 0,0 is top left.
-                // We will just create divs at specific grid positions.
 
                 const createCell = (r, c, type, id) => {
                     const el = document.createElement('div');
@@ -222,20 +384,10 @@
                     return el;
                 };
 
-                // GENERATE TRACK
-                // Standard Ludo Path Logic
-                // Global Path indices 0-51 (Main loop)
-                // We need a mapping from Path Index -> Grid (Row, Col)
-
-                // SEQUENCE (Starting from Green/Start):
-                // Green Start is at Grid (7, 2) which is index 0 of Green's local path.
-                // But let's use a standard loop.
-
-                // Let's hardcode the visual track for simplicity
                 // Green Path (Left)
-                for(let i=0; i<6; i++) createCell(7, i+1, i===1?'path-green safe':'', `g-${i}`); // Top row of left arm
-                for(let i=0; i<6; i++) createCell(8, i+1, i>0?'path-green':'', `gh-${i}`); // Home row green
-                for(let i=0; i<6; i++) createCell(9, i+1, i===2?'safe':'', `g-${12-i}`); // Bottom row of left arm
+                for(let i=0; i<6; i++) createCell(7, i+1, i===1?'path-green safe':'', `g-${i}`);
+                for(let i=0; i<6; i++) createCell(8, i+1, i>0?'path-green':'', `gh-${i}`);
+                for(let i=0; i<6; i++) createCell(9, i+1, i===2?'safe':'', `g-${12-i}`);
 
                 // Yellow Path (Top)
                 for(let i=0; i<6; i++) createCell(i+1, 9, i===1?'path-yellow safe':'', `y-${i}`);
@@ -255,7 +407,7 @@
             renderTokens: () => {
                 document.querySelectorAll('.token').forEach(t => t.remove());
 
-                const colors = ['green', 'yellow', 'blue', 'red']; // 0, 1, 2, 3
+                const colors = ['green', 'yellow', 'blue', 'red'];
 
                 state.game.players.forEach((p, pIdx) => {
                     p.tokens.forEach((pos, tIdx) => {
@@ -263,41 +415,25 @@
                         el.className = `token bg-${colors[pIdx]}-500`;
                         el.onclick = () => game.moveToken(tIdx);
 
-                        // Highlight if current turn and movable
                         if(state.game.turn === pIdx && state.game.phase === 'move' && state.myIndex === pIdx) {
                             if(game.canMove(pIdx, tIdx, state.game.diceVal)) el.classList.add('active');
                         }
 
-                        // POSITIONING
                         if(pos === -1) {
-                            // Base
                             const base = document.getElementById(`base-${pIdx}`);
                             if(base) {
-                                // Create spot if needed or just append
                                 const spot = document.createElement('div');
                                 spot.className = 'base-spot w-full h-full relative';
                                 spot.appendChild(el);
                                 base.appendChild(spot);
-                                return;
                             }
                         } else if (pos === 99) {
-                            // Goal
-                             // Just put in center
                              const center = document.getElementById('center-goal');
                              el.style.width='15px'; el.style.height='15px'; el.style.position='relative';
                              center.appendChild(el);
-                             return;
                         } else {
-                            // Track
-                            // Need to map global position 0-51 to grid cell
-                            // Each player starts at different offset.
-                            // 0: Green(0), 1: Yellow(13), 2: Blue(26), 3: Red(39)
-                            // Total 52 steps main loop.
-
-                            // Let's use coordinate mapping logic
                             let cell = getCellForPos(pIdx, pos);
                             if(cell) {
-                                // Handle multiple tokens on same cell
                                 if(cell.children.length > 0) {
                                     const offset = cell.children.length * 5;
                                     el.style.left = (10 + offset) + '%';
@@ -311,105 +447,41 @@
             }
         };
 
-        // GAME LOGIC
-        // Paths: 52 cells main loop. + 6 home run.
-        // Start offsets: Green=0, Yellow=13, Blue=26, Red=39.
-        const pathMap = {}; // id -> el
+        const loopCoords = [
+             [7,2], [7,3], [7,4], [7,5], [7,6],
+             [6,7], [5,7], [4,7], [3,7], [2,7], [1,7],
+             [1,8], [1,9],
+             [2,9], [3,9], [4,9], [5,9], [6,9],
+             [7,10], [7,11], [7,12], [7,13], [7,14], [7,15],
+             [8,15], [9,15],
+             [9,14], [9,13], [9,12], [9,11], [9,10],
+             [10,9], [11,9], [12,9], [13,9], [14,9], [15,9],
+             [15,8], [15,7],
+             [14,7], [13,7], [12,7], [11,7], [10,7],
+             [9,6], [9,5], [9,4], [9,3], [9,2], [9,1],
+             [8,1], [7,1]
+        ];
+
+        const homeRunCoords = [
+             [[8,2], [8,3], [8,4], [8,5], [8,6], [8,7]],
+             [[2,8], [3,8], [4,8], [5,8], [6,8], [7,8]],
+             [[8,14], [8,13], [8,12], [8,11], [8,10], [8,9]],
+             [[14,8], [13,8], [12,8], [11,8], [10,8], [9,8]]
+        ];
 
         function getCellForPos(pIdx, localPos) {
-             // Local Pos: 0-50 (Main), 51-56 (Home Run)
-             // 0 is start point.
-             // Green Path IDs: g-0 to g-5 (row 7, col 1-6), g-6 to g-10...
-             // Wait, I didn't generate all IDs in renderBoard clearly.
-             // Let's rely on visual placement or refine renderBoard IDs.
-             // Actually, simplest is to use grid coords mapping.
-
-             // MAP: 0-51 are main loop.
-             // Green Start is 0.
-             // Yellow Start is 13.
-             // Blue Start is 26.
-             // Red Start is 39.
-
-             // Coords logic for 15x15
-             // 0 -> (7, 2) (Green Start)
-             // ... move right ...
-
-             // Better: Define specific coords for the 52 loop + home runs.
-
-             // Let's re-implement `renderBoard` logic to map indices to div IDs cleanly.
-             // Green Track:
-             // 0-4: (7,2) to (7,6)
-             // 5: (6,7) -> Up
-             // 6-10: (5,7) to (1,7)
-             // 11: (1,8) -> Right
-             // 12: (1,9) -> Down (Yellow Start @ 13 is (2,9))
-
-             // This is tedious to map manually.
-             // Let's assume the DOM elements have IDs like `cell-0` to `cell-51`?
-             // No, standard board has 4 arms.
-
-             // Let's simplify. I used `g-`, `y-`, etc in renderBoard.
-             // Green: 0 is `g-1`.
-             // 5 is turning point.
-
-             // Let's stick to the visual generation logic I wrote in `renderBoard`.
-             // `g-0` to `g-5` (Top row of left arm).
-             // `g-12` to `g-7` (Bottom row of left arm).
-             // `gh-0` to `gh-5` (Middle row of left arm - Home Run).
-
-             // It is easier to write a coordinate lookup table for 0-51.
-             // But for now, let's just match the IDs I generated.
-
-             // NOTE: `renderBoard` generation was a bit ad-hoc. Let's formalize.
-             // P0 (Green) Start: `g-1` (which corresponds to global 0).
-             // It moves right to `g-5`. Then turns up...
-             // Wait, standard board:
-             // Green base is top-left. Path starts at (7, 2). Moves Right? No, Moves Right then Up?
-             // Usually: Left Arm (Top row) -> moves Right towards center? No.
-             // Standard: Starts at (7,2) -> Moves Right 5 steps -> Up 6 steps -> Right 2 -> Down 6 -> Right 5...
-
-             // Let's just create a list of grid coordinates for the 52-step main loop.
-             const loopCoords = [
-                 // Green Start (1) -> Towards Yellow
-                 [7,2], [7,3], [7,4], [7,5], [7,6], // 0-4
-                 [6,7], [5,7], [4,7], [3,7], [2,7], [1,7], // 5-10
-                 [1,8], [1,9], // 11-12
-                 // Yellow Start (14) -> Towards Blue
-                 [2,9], [3,9], [4,9], [5,9], [6,9], // 13-17
-                 [7,10], [7,11], [7,12], [7,13], [7,14], [7,15], // 18-23
-                 [8,15], [9,15], // 24-25
-                 // Blue Start (27) -> Towards Red
-                 [9,14], [9,13], [9,12], [9,11], [9,10], // 26-30
-                 [10,9], [11,9], [12,9], [13,9], [14,9], [15,9], // 31-36
-                 [15,8], [15,7], // 37-38
-                 // Red Start (40) -> Towards Green
-                 [14,7], [13,7], [12,7], [11,7], [10,7], // 39-43
-                 [9,6], [9,5], [9,4], [9,3], [9,2], [9,1], // 44-49
-                 [8,1], [7,1] // 50-51 -> Wrap to 0
-             ];
-
-             const homeRunCoords = [
-                 [[8,2], [8,3], [8,4], [8,5], [8,6], [8,7]], // Green
-                 [[2,8], [3,8], [4,8], [5,8], [6,8], [7,8]], // Yellow
-                 [[8,14], [8,13], [8,12], [8,11], [8,10], [8,9]], // Blue
-                 [[14,8], [13,8], [12,8], [11,8], [10,8], [9,8]] // Red
-             ];
-
              if(localPos < 52) {
-                 // Convert local to global based on pIdx
                  const offset = pIdx * 13;
                  const globalPos = (localPos + offset) % 52;
                  const c = loopCoords[globalPos];
-                 // Find div at this grid coord
                  return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`);
              } else {
-                 // Home run
                  const hrIdx = localPos - 52;
                  if(hrIdx < 6) {
                      const c = homeRunCoords[pIdx][hrIdx];
                      return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`);
                  }
-                 return null; // Goal
+                 return null;
              }
         }
 
@@ -425,7 +497,7 @@
                 ],
                 turn: 0,
                 diceVal: 0,
-                phase: 'roll', // 'roll' or 'move'
+                phase: 'roll',
                 winners: []
             }
         };
@@ -446,7 +518,6 @@
                 state.game.diceVal = val;
                 ui.renderDice(val);
 
-                // Check if valid moves
                 if(game.hasValidMoves(state.game.turn, val)) {
                     state.game.phase = 'move';
                 } else {
@@ -460,9 +531,9 @@
             },
             canMove: (pIdx, tIdx, roll) => {
                 const pos = state.game.players[pIdx].tokens[tIdx];
-                if(pos === 99) return false; // Already finished
-                if(pos === -1) return roll === 6; // Base to Start
-                if(pos + roll > 57) return false; // Overshoot
+                if(pos === 99) return false;
+                if(pos === -1) return roll === 6;
+                if(pos + roll > 57) return false;
                 return true;
             },
             moveToken: (tIdx) => {
@@ -478,17 +549,14 @@
                 let cur = p.tokens[tIdx];
 
                 if(cur === -1) {
-                    p.tokens[tIdx] = 0; // Start
+                    p.tokens[tIdx] = 0;
                 } else {
                     p.tokens[tIdx] += roll;
-                    if(p.tokens[tIdx] === 57) p.tokens[tIdx] = 99; // Goal
+                    if(p.tokens[tIdx] === 57) p.tokens[tIdx] = 99;
                 }
 
-                // Check Capture (Collision)
-                // Convert to global position to check collision
                 if(p.tokens[tIdx] < 52 && p.tokens[tIdx] !== -1) {
                      const myGlobal = (p.tokens[tIdx] + pIdx * 13) % 52;
-                     // Safe spots: 0, 8, 13, 21, 26, 34, 39, 47 (Global indices)
                      const isSafe = [0,8,13,21,26,34,39,47].includes(myGlobal);
 
                      if(!isSafe) {
@@ -498,9 +566,8 @@
                                      if(ot !== -1 && ot < 52) {
                                          const oppGlobal = (ot + oIdx * 13) % 52;
                                          if(myGlobal === oppGlobal) {
-                                             // Capture!
-                                             opp.tokens[otIdx] = -1; // Send back to base
-                                             // Bonus turn?
+                                             opp.tokens[otIdx] = -1;
+                                             window.audio.playSfx('win'); // Capture sound is win sound
                                          }
                                      }
                                  });
@@ -509,15 +576,14 @@
                      }
                 }
 
+                window.audio.playSfx('move');
                 ui.renderTokens();
 
-                // Win Check
                 if(p.tokens.every(t => t === 99)) {
                     state.game.winners.push(p.name);
                     ui.showWin(p.name);
                 }
 
-                // Rule: 6 gives another turn
                 if(roll === 6) {
                     state.game.phase = 'roll';
                     app.updateStatus("Main Lagi!");
@@ -534,11 +600,9 @@
             }
         };
 
-        // NETWORK
         const app = {
             peer: null, conn: {},
             init: () => {
-                // Check URL params
                 const url = new URL(window.location.href);
                 const room = url.searchParams.get('room');
                 const name = url.searchParams.get('name');
@@ -570,13 +634,7 @@
                     game.init();
                 });
                 app.peer.on('connection', (c) => {
-                    c.on('open', () => {
-                        // Find empty slot
-                        const slot = state.game.players.findIndex(p => p.name.startsWith('P') && p.name.length < 3); // Simple heuristic
-                        // Actually, simplified: just assign next available index > 0
-                        // Since this is P2P full mesh or Star? Star is easier (Host manages).
-                        // Let's assume Host manages state.
-                    });
+                    c.on('open', () => { });
                     c.on('data', (d) => app.handleData(d, c));
                     app.conn[c.peer] = c;
                 });
@@ -602,29 +660,26 @@
             },
             send: (data) => {
                 if(state.myIndex === 0) {
-                    // I am host
-                    app.handleData(data, {peer: 'me'}); // Process locally
-                    // Broadcast
+                    app.handleData(data, {peer: 'me'});
                     Object.values(app.conn).forEach(c => c.send(data));
                 } else {
                     app.conn['host'].send(data);
                 }
             },
+            sendHost: (data) => {
+                if(app.conn['host']) app.conn['host'].send(data);
+            },
             handleData: (d, conn) => {
-                // HOST LOGIC
                 if(state.myIndex === 0) {
                     if(d.type === 'JOIN') {
-                        // Assign slot
                         let idx = state.game.players.findIndex((p, i) => i>0 && (p.name === 'P'+(i+1) || p.peerId === undefined));
                         if(idx !== -1) {
                             state.game.players[idx].name = d.name;
                             state.game.players[idx].peerId = conn.peer;
 
-                            // Send state to everyone
                             const update = { type: 'STATE', game: state.game, myIdx: idx };
-                            conn.send(update); // Send specifically to new joiner with their index
+                            conn.send(update);
 
-                            // Broadcast names update
                             Object.values(app.conn).forEach(c => {
                                 if(c.peer !== conn.peer) c.send({ type: 'STATE', game: state.game });
                             });
@@ -635,13 +690,13 @@
                         game.handleRoll(d.val);
                         Object.values(app.conn).forEach(c => c.send({ type: 'UPDATE_GAME', game: state.game }));
                     } else if (d.type === 'MOVE') {
-                        // Identify player from connection? No, trust payload for now or match peerId
-                        // Ideally check turn
                         game.handleMove(state.game.turn, d.tIdx);
                          Object.values(app.conn).forEach(c => c.send({ type: 'UPDATE_GAME', game: state.game }));
+                    } else if (d.type === 'REQ_MUSIC') {
+                        app.send({type: 'MUSIC_SYNC', url: d.url, title: d.title, artist: d.artist});
+                        window.audio.playMusic(d.url, d.title, d.artist);
                     }
                 }
-                // CLIENT LOGIC
                 else {
                     if(d.type === 'STATE') {
                         state.game = d.game;
@@ -656,6 +711,8 @@
                         ui.renderTokens();
                         ui.updateNames(state.game.players);
                         app.updateStatus();
+                    } else if (d.type === 'MUSIC_SYNC') {
+                        window.audio.playMusic(d.url, d.title, d.artist);
                     }
                 }
             },
@@ -668,10 +725,8 @@
             }
         };
 
-        // Init
+        window.audio = new AudioManager();
         app.init();
-
-        // Populate Grid for Visual Debug
         game.init();
 
     </script>
