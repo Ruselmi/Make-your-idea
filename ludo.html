@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nusantara Ludo (4 Player)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Bangers&display=swap');
+        body { font-family: 'Poppins', sans-serif; background: #0f172a; color: white; overflow: hidden; touch-action: none; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+
+        /* LUDO BOARD */
+        .ludo-board {
+            width: 100%; max-width: 400px; aspect-ratio: 1;
+            background: white; border: 4px solid #333;
+            display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(15, 1fr);
+            position: relative;
+        }
+        .cell { border: 1px solid rgba(0,0,0,0.1); position: relative; }
+        .base { grid-row: span 6; grid-column: span 6; display: flex; align-items: center; justify-content: center; border: 4px solid rgba(0,0,0,0.2); }
+        .base-inner { width: 70%; height: 70%; background: white; border-radius: 20%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+        .base-spot { background: rgba(0,0,0,0.1); border-radius: 50%; box-shadow: inset 0 0 5px rgba(0,0,0,0.2); }
+
+        .c-red { background: #ef4444; }
+        .c-green { background: #22c55e; }
+        .c-blue { background: #3b82f6; }
+        .c-yellow { background: #eab308; }
+
+        .path-red { background: #fca5a5; }
+        .path-green { background: #86efac; }
+        .path-blue { background: #93c5fd; }
+        .path-yellow { background: #fde047; }
+
+        .safe { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300000020'%3E%3Cpath d='M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99z'/%3E%3C/svg%3E"); background-size: 80%; background-position: center; background-repeat: no-repeat; }
+
+        .center { grid-column: 7 / span 3; grid-row: 7 / span 3; background: repeating-conic-gradient(#ef4444 0 90deg, #22c55e 90deg 180deg, #eab308 180deg 270deg, #3b82f6 270deg 360deg); }
+
+        /* TOKEN */
+        .token {
+            width: 80%; height: 80%; border-radius: 50%;
+            border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            position: absolute; top: 10%; left: 10%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10; cursor: pointer;
+        }
+        .token.active { animation: bounce 1s infinite; border-color: white; box-shadow: 0 0 10px white; z-index: 20; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20%); } }
+
+        /* DICE */
+        .dice-container { perspective: 1000px; width: 60px; height: 60px; cursor: pointer; }
+        .dice { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 1s; }
+        .face { position: absolute; width: 60px; height: 60px; background: white; border: 1px solid #ccc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #333; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); }
+        .face:nth-child(1) { transform: rotateY(0deg) translateZ(30px); }
+        .face:nth-child(2) { transform: rotateY(90deg) translateZ(30px); }
+        .face:nth-child(3) { transform: rotateY(180deg) translateZ(30px); }
+        .face:nth-child(4) { transform: rotateY(-90deg) translateZ(30px); }
+        .face:nth-child(5) { transform: rotateX(90deg) translateZ(30px); }
+        .face:nth-child(6) { transform: rotateX(-90deg) translateZ(30px); }
+
+        .rolling { animation: roll 0.5s linear infinite; }
+        @keyframes roll { 0% { transform: rotateX(0) rotateY(0); } 100% { transform: rotateX(360deg) rotateY(360deg); } }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center h-screen w-screen bg-[url('https://images.unsplash.com/photo-1605218427306-635ba2439715?q=80&w=1000&auto=format&fit=crop')] bg-cover">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+
+    <!-- HOME SCREEN -->
+    <div id="screen-home" class="relative z-10 text-center w-full max-w-md p-6">
+        <h1 class="text-5xl font-black text-yellow-400 mb-2 drop-shadow-lg" style="font-family: 'Bangers'">LUDO BIRD</h1>
+        <p class="text-slate-300 mb-8">4 Player Multiplayer</p>
+
+        <div class="glass p-6 rounded-2xl mb-4">
+            <input type="text" id="input-name" placeholder="Nama Kamu" class="w-full bg-slate-800 p-3 rounded-lg text-center font-bold text-white mb-4 outline-none border border-slate-600 focus:border-yellow-400">
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
+                <button onclick="app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
+            </div>
+            <div id="join-input-area" class="hidden mt-4">
+                <input type="text" id="input-room" placeholder="Kode Room" class="w-full bg-slate-800 p-3 rounded-lg text-center font-mono uppercase text-xl mb-2 border border-slate-600">
+                <button onclick="app.joinRoom()" class="w-full bg-yellow-500 text-black py-2 rounded-lg font-bold">MASUK</button>
+            </div>
+        </div>
+        <button onclick="window.location.href='index.html'" class="text-xs text-slate-500 hover:text-white transition">KEMBALI KE MENU UTAMA</button>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="screen-game" class="relative z-10 w-full h-full hidden flex flex-col">
+        <!-- HEADER -->
+        <div class="p-2 flex justify-between items-center glass shrink-0">
+            <div class="text-xs font-bold text-slate-300">Room: <span id="room-code" class="text-yellow-400 font-mono select-all">...</span></div>
+            <div id="turn-indicator" class="text-xs font-bold px-4 py-1 rounded-full bg-slate-700">Menunggu...</div>
+        </div>
+
+        <!-- BOARD AREA -->
+        <div class="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+            <div class="ludo-board rounded-lg shadow-2xl">
+                <!-- BASES -->
+                <div class="base c-green" style="grid-row: 1/7; grid-column: 1/7;">
+                    <div class="base-inner" id="base-0"></div>
+                </div>
+                <div class="base c-yellow" style="grid-row: 1/7; grid-column: 10/16;">
+                    <div class="base-inner" id="base-1"></div>
+                </div>
+                <div class="base c-red" style="grid-row: 10/16; grid-column: 1/7;">
+                    <div class="base-inner" id="base-3"></div>
+                </div>
+                <div class="base c-blue" style="grid-row: 10/16; grid-column: 10/16;">
+                    <div class="base-inner" id="base-2"></div>
+                </div>
+
+                <!-- CENTER -->
+                <div class="center flex items-center justify-center text-4xl font-black text-white/50" id="center-goal">🏆</div>
+
+                <!-- CELLS GENERATED BY JS -->
+            </div>
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="h-32 glass rounded-t-3xl p-4 flex items-center justify-between shrink-0 relative">
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-green-500"></div> <span id="p0-name" class="text-xs">P1</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div> <span id="p1-name" class="text-xs">P2</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-blue-500"></div> <span id="p2-name" class="text-xs">P3</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-red-500"></div> <span id="p3-name" class="text-xs">P4</span>
+                </div>
+            </div>
+
+            <div class="absolute left-1/2 -translate-x-1/2 -top-10">
+                 <div class="dice-container" onclick="game.rollDice()">
+                     <div id="dice-cube" class="dice">
+                         <div class="face">1</div><div class="face">2</div><div class="face">3</div>
+                         <div class="face">4</div><div class="face">5</div><div class="face">6</div>
+                     </div>
+                 </div>
+            </div>
+
+            <div class="text-center w-24">
+                 <div class="text-[10px] text-slate-400 uppercase font-bold">Dadu</div>
+                 <div id="dice-val" class="text-3xl font-black text-yellow-400">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL WIN -->
+    <div id="modal-win" class="fixed inset-0 z-50 bg-black/90 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 p-8 rounded-2xl text-center border border-yellow-500/50">
+            <h2 class="text-3xl font-black text-yellow-400 mb-4">PEMENANG!</h2>
+            <div id="winner-name" class="text-xl text-white mb-6">Player Name</div>
+            <button onclick="location.reload()" class="bg-blue-600 px-6 py-2 rounded-full font-bold">MAIN LAGI</button>
+        </div>
+    </div>
+
+    <script>
+        const PEER_PREFIX = "NGH-LUDO-V1-";
+
+        // UTILS
+        const utils = {
+            randId: () => Math.random().toString(36).substr(2, 5).toUpperCase(),
+            sleep: (ms) => new Promise(r => setTimeout(r, ms))
+        };
+
+        // UI
+        const ui = {
+            screen: (id) => {
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.add('hidden');
+                document.getElementById(id).classList.remove('hidden');
+            },
+            showWin: (name) => {
+                document.getElementById('winner-name').innerText = name;
+                document.getElementById('modal-win').classList.remove('hidden');
+            },
+            updateNames: (players) => {
+                players.forEach((p, i) => {
+                    if(p && p.name) document.getElementById(`p${i}-name`).innerText = p.name + (i === state.myIndex ? " (Me)" : "");
+                });
+            },
+            renderDice: (val) => {
+                const d = document.getElementById('dice-cube');
+                const v = document.getElementById('dice-val');
+                d.classList.add('rolling');
+                setTimeout(() => {
+                    d.classList.remove('rolling');
+                    const rot = {
+                        1: [0, 0], 2: [0, -90], 3: [0, -180],
+                        4: [0, 90], 5: [-90, 0], 6: [90, 0]
+                    }[val] || [0,0];
+                    d.style.transform = `rotateX(${rot[0]}deg) rotateY(${rot[1]}deg)`;
+                    v.innerText = val;
+                }, 500);
+            },
+            renderBoard: () => {
+                // Generate path cells
+                const board = document.querySelector('.ludo-board');
+                // Clear existing cells (keep bases and center)
+                document.querySelectorAll('.cell').forEach(e => e.remove());
+
+                // PATH DEFINITIONS (Simplified coordinate map)
+                // 15x15 Grid. 0,0 is top left.
+                // We will just create divs at specific grid positions.
+
+                const createCell = (r, c, type, id) => {
+                    const el = document.createElement('div');
+                    el.className = `cell ${type}`;
+                    el.style.gridRow = r;
+                    el.style.gridColumn = c;
+                    el.dataset.id = id;
+                    board.appendChild(el);
+                    return el;
+                };
+
+                // GENERATE TRACK
+                // Standard Ludo Path Logic
+                // Global Path indices 0-51 (Main loop)
+                // We need a mapping from Path Index -> Grid (Row, Col)
+
+                // SEQUENCE (Starting from Green/Start):
+                // Green Start is at Grid (7, 2) which is index 0 of Green's local path.
+                // But let's use a standard loop.
+
+                // Let's hardcode the visual track for simplicity
+                // Green Path (Left)
+                for(let i=0; i<6; i++) createCell(7, i+1, i===1?'path-green safe':'', `g-${i}`); // Top row of left arm
+                for(let i=0; i<6; i++) createCell(8, i+1, i>0?'path-green':'', `gh-${i}`); // Home row green
+                for(let i=0; i<6; i++) createCell(9, i+1, i===2?'safe':'', `g-${12-i}`); // Bottom row of left arm
+
+                // Yellow Path (Top)
+                for(let i=0; i<6; i++) createCell(i+1, 9, i===1?'path-yellow safe':'', `y-${i}`);
+                for(let i=0; i<6; i++) createCell(i+1, 8, i>0?'path-yellow':'', `yh-${i}`);
+                for(let i=0; i<6; i++) createCell(i+1, 7, i===2?'safe':'', `y-${12-i}`);
+
+                // Blue Path (Right)
+                for(let i=0; i<6; i++) createCell(9, 15-i, i===1?'path-blue safe':'', `b-${i}`);
+                for(let i=0; i<6; i++) createCell(8, 15-i, i>0?'path-blue':'', `bh-${i}`);
+                for(let i=0; i<6; i++) createCell(7, 15-i, i===2?'safe':'', `b-${12-i}`);
+
+                // Red Path (Bottom)
+                for(let i=0; i<6; i++) createCell(15-i, 7, i===1?'path-red safe':'', `r-${i}`);
+                for(let i=0; i<6; i++) createCell(15-i, 8, i>0?'path-red':'', `rh-${i}`);
+                for(let i=0; i<6; i++) createCell(15-i, 9, i===2?'safe':'', `r-${12-i}`);
+            },
+            renderTokens: () => {
+                document.querySelectorAll('.token').forEach(t => t.remove());
+
+                const colors = ['green', 'yellow', 'blue', 'red']; // 0, 1, 2, 3
+
+                state.game.players.forEach((p, pIdx) => {
+                    p.tokens.forEach((pos, tIdx) => {
+                        const el = document.createElement('div');
+                        el.className = `token bg-${colors[pIdx]}-500`;
+                        el.onclick = () => game.moveToken(tIdx);
+
+                        // Highlight if current turn and movable
+                        if(state.game.turn === pIdx && state.game.phase === 'move' && state.myIndex === pIdx) {
+                            if(game.canMove(pIdx, tIdx, state.game.diceVal)) el.classList.add('active');
+                        }
+
+                        // POSITIONING
+                        if(pos === -1) {
+                            // Base
+                            const base = document.getElementById(`base-${pIdx}`);
+                            if(base) {
+                                // Create spot if needed or just append
+                                const spot = document.createElement('div');
+                                spot.className = 'base-spot w-full h-full relative';
+                                spot.appendChild(el);
+                                base.appendChild(spot);
+                                return;
+                            }
+                        } else if (pos === 99) {
+                            // Goal
+                             // Just put in center
+                             const center = document.getElementById('center-goal');
+                             el.style.width='15px'; el.style.height='15px'; el.style.position='relative';
+                             center.appendChild(el);
+                             return;
+                        } else {
+                            // Track
+                            // Need to map global position 0-51 to grid cell
+                            // Each player starts at different offset.
+                            // 0: Green(0), 1: Yellow(13), 2: Blue(26), 3: Red(39)
+                            // Total 52 steps main loop.
+
+                            // Let's use coordinate mapping logic
+                            let cell = getCellForPos(pIdx, pos);
+                            if(cell) {
+                                // Handle multiple tokens on same cell
+                                if(cell.children.length > 0) {
+                                    const offset = cell.children.length * 5;
+                                    el.style.left = (10 + offset) + '%';
+                                    el.style.top = (10 + offset) + '%';
+                                }
+                                cell.appendChild(el);
+                            }
+                        }
+                    });
+                });
+            }
+        };
+
+        // GAME LOGIC
+        // Paths: 52 cells main loop. + 6 home run.
+        // Start offsets: Green=0, Yellow=13, Blue=26, Red=39.
+        const pathMap = {}; // id -> el
+
+        function getCellForPos(pIdx, localPos) {
+             // Local Pos: 0-50 (Main), 51-56 (Home Run)
+             // 0 is start point.
+             // Green Path IDs: g-0 to g-5 (row 7, col 1-6), g-6 to g-10...
+             // Wait, I didn't generate all IDs in renderBoard clearly.
+             // Let's rely on visual placement or refine renderBoard IDs.
+             // Actually, simplest is to use grid coords mapping.
+
+             // MAP: 0-51 are main loop.
+             // Green Start is 0.
+             // Yellow Start is 13.
+             // Blue Start is 26.
+             // Red Start is 39.
+
+             // Coords logic for 15x15
+             // 0 -> (7, 2) (Green Start)
+             // ... move right ...
+
+             // Better: Define specific coords for the 52 loop + home runs.
+
+             // Let's re-implement `renderBoard` logic to map indices to div IDs cleanly.
+             // Green Track:
+             // 0-4: (7,2) to (7,6)
+             // 5: (6,7) -> Up
+             // 6-10: (5,7) to (1,7)
+             // 11: (1,8) -> Right
+             // 12: (1,9) -> Down (Yellow Start @ 13 is (2,9))
+
+             // This is tedious to map manually.
+             // Let's assume the DOM elements have IDs like `cell-0` to `cell-51`?
+             // No, standard board has 4 arms.
+
+             // Let's simplify. I used `g-`, `y-`, etc in renderBoard.
+             // Green: 0 is `g-1`.
+             // 5 is turning point.
+
+             // Let's stick to the visual generation logic I wrote in `renderBoard`.
+             // `g-0` to `g-5` (Top row of left arm).
+             // `g-12` to `g-7` (Bottom row of left arm).
+             // `gh-0` to `gh-5` (Middle row of left arm - Home Run).
+
+             // It is easier to write a coordinate lookup table for 0-51.
+             // But for now, let's just match the IDs I generated.
+
+             // NOTE: `renderBoard` generation was a bit ad-hoc. Let's formalize.
+             // P0 (Green) Start: `g-1` (which corresponds to global 0).
+             // It moves right to `g-5`. Then turns up...
+             // Wait, standard board:
+             // Green base is top-left. Path starts at (7, 2). Moves Right? No, Moves Right then Up?
+             // Usually: Left Arm (Top row) -> moves Right towards center? No.
+             // Standard: Starts at (7,2) -> Moves Right 5 steps -> Up 6 steps -> Right 2 -> Down 6 -> Right 5...
+
+             // Let's just create a list of grid coordinates for the 52-step main loop.
+             const loopCoords = [
+                 // Green Start (1) -> Towards Yellow
+                 [7,2], [7,3], [7,4], [7,5], [7,6], // 0-4
+                 [6,7], [5,7], [4,7], [3,7], [2,7], [1,7], // 5-10
+                 [1,8], [1,9], // 11-12
+                 // Yellow Start (14) -> Towards Blue
+                 [2,9], [3,9], [4,9], [5,9], [6,9], // 13-17
+                 [7,10], [7,11], [7,12], [7,13], [7,14], [7,15], // 18-23
+                 [8,15], [9,15], // 24-25
+                 // Blue Start (27) -> Towards Red
+                 [9,14], [9,13], [9,12], [9,11], [9,10], // 26-30
+                 [10,9], [11,9], [12,9], [13,9], [14,9], [15,9], // 31-36
+                 [15,8], [15,7], // 37-38
+                 // Red Start (40) -> Towards Green
+                 [14,7], [13,7], [12,7], [11,7], [10,7], // 39-43
+                 [9,6], [9,5], [9,4], [9,3], [9,2], [9,1], // 44-49
+                 [8,1], [7,1] // 50-51 -> Wrap to 0
+             ];
+
+             const homeRunCoords = [
+                 [[8,2], [8,3], [8,4], [8,5], [8,6], [8,7]], // Green
+                 [[2,8], [3,8], [4,8], [5,8], [6,8], [7,8]], // Yellow
+                 [[8,14], [8,13], [8,12], [8,11], [8,10], [8,9]], // Blue
+                 [[14,8], [13,8], [12,8], [11,8], [10,8], [9,8]] // Red
+             ];
+
+             if(localPos < 52) {
+                 // Convert local to global based on pIdx
+                 const offset = pIdx * 13;
+                 const globalPos = (localPos + offset) % 52;
+                 const c = loopCoords[globalPos];
+                 // Find div at this grid coord
+                 return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`);
+             } else {
+                 // Home run
+                 const hrIdx = localPos - 52;
+                 if(hrIdx < 6) {
+                     const c = homeRunCoords[pIdx][hrIdx];
+                     return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`);
+                 }
+                 return null; // Goal
+             }
+        }
+
+        const state = {
+            myIndex: -1,
+            roomCode: '',
+            game: {
+                players: [
+                    { name: 'P1', tokens: [-1,-1,-1,-1], baseColor: 'green' },
+                    { name: 'P2', tokens: [-1,-1,-1,-1], baseColor: 'yellow' },
+                    { name: 'P3', tokens: [-1,-1,-1,-1], baseColor: 'blue' },
+                    { name: 'P4', tokens: [-1,-1,-1,-1], baseColor: 'red' }
+                ],
+                turn: 0,
+                diceVal: 0,
+                phase: 'roll', // 'roll' or 'move'
+                winners: []
+            }
+        };
+
+        const game = {
+            init: () => {
+                ui.renderBoard();
+                ui.renderTokens();
+            },
+            rollDice: () => {
+                if(state.game.turn !== state.myIndex) return;
+                if(state.game.phase !== 'roll') return;
+
+                const val = Math.floor(Math.random() * 6) + 1;
+                app.send({ type: 'ROLL', val });
+            },
+            handleRoll: (val) => {
+                state.game.diceVal = val;
+                ui.renderDice(val);
+
+                // Check if valid moves
+                if(game.hasValidMoves(state.game.turn, val)) {
+                    state.game.phase = 'move';
+                } else {
+                    setTimeout(game.nextTurn, 1000);
+                }
+                ui.renderTokens();
+                app.updateStatus();
+            },
+            hasValidMoves: (pIdx, roll) => {
+                return state.game.players[pIdx].tokens.some((t, i) => game.canMove(pIdx, i, roll));
+            },
+            canMove: (pIdx, tIdx, roll) => {
+                const pos = state.game.players[pIdx].tokens[tIdx];
+                if(pos === 99) return false; // Already finished
+                if(pos === -1) return roll === 6; // Base to Start
+                if(pos + roll > 57) return false; // Overshoot
+                return true;
+            },
+            moveToken: (tIdx) => {
+                if(state.game.turn !== state.myIndex) return;
+                if(state.game.phase !== 'move') return;
+                if(!game.canMove(state.game.turn, tIdx, state.game.diceVal)) return;
+
+                app.send({ type: 'MOVE', tIdx });
+            },
+            handleMove: (pIdx, tIdx) => {
+                const p = state.game.players[pIdx];
+                const roll = state.game.diceVal;
+                let cur = p.tokens[tIdx];
+
+                if(cur === -1) {
+                    p.tokens[tIdx] = 0; // Start
+                } else {
+                    p.tokens[tIdx] += roll;
+                    if(p.tokens[tIdx] === 57) p.tokens[tIdx] = 99; // Goal
+                }
+
+                // Check Capture (Collision)
+                // Convert to global position to check collision
+                if(p.tokens[tIdx] < 52 && p.tokens[tIdx] !== -1) {
+                     const myGlobal = (p.tokens[tIdx] + pIdx * 13) % 52;
+                     // Safe spots: 0, 8, 13, 21, 26, 34, 39, 47 (Global indices)
+                     const isSafe = [0,8,13,21,26,34,39,47].includes(myGlobal);
+
+                     if(!isSafe) {
+                         state.game.players.forEach((opp, oIdx) => {
+                             if(pIdx !== oIdx) {
+                                 opp.tokens.forEach((ot, otIdx) => {
+                                     if(ot !== -1 && ot < 52) {
+                                         const oppGlobal = (ot + oIdx * 13) % 52;
+                                         if(myGlobal === oppGlobal) {
+                                             // Capture!
+                                             opp.tokens[otIdx] = -1; // Send back to base
+                                             // Bonus turn?
+                                         }
+                                     }
+                                 });
+                             }
+                         });
+                     }
+                }
+
+                ui.renderTokens();
+
+                // Win Check
+                if(p.tokens.every(t => t === 99)) {
+                    state.game.winners.push(p.name);
+                    ui.showWin(p.name);
+                }
+
+                // Rule: 6 gives another turn
+                if(roll === 6) {
+                    state.game.phase = 'roll';
+                    app.updateStatus("Main Lagi!");
+                } else {
+                    game.nextTurn();
+                }
+            },
+            nextTurn: () => {
+                state.game.turn = (state.game.turn + 1) % 4;
+                state.game.phase = 'roll';
+                state.game.diceVal = 0;
+                ui.renderTokens();
+                app.updateStatus();
+            }
+        };
+
+        // NETWORK
+        const app = {
+            peer: null, conn: {},
+            init: () => {
+                // Check URL params
+                const url = new URL(window.location.href);
+                const room = url.searchParams.get('room');
+                const name = url.searchParams.get('name');
+                const host = url.searchParams.get('host');
+
+                if(name) document.getElementById('input-name').value = name;
+
+                if(room && name) {
+                    if(host === 'true') {
+                        app.createRoom(room);
+                    } else {
+                        document.getElementById('input-room').value = room;
+                        app.joinRoom();
+                    }
+                }
+            },
+            createRoom: (forceCode) => {
+                const name = document.getElementById('input-name').value || "Host";
+                const code = forceCode || utils.randId();
+                state.myIndex = 0;
+                state.game.players[0].name = name;
+
+                app.peer = new Peer(PEER_PREFIX + code);
+                app.peer.on('open', (id) => {
+                    state.roomCode = code;
+                    document.getElementById('room-code').innerText = code;
+                    ui.screen('screen-game');
+                    ui.updateNames(state.game.players);
+                    game.init();
+                });
+                app.peer.on('connection', (c) => {
+                    c.on('open', () => {
+                        // Find empty slot
+                        const slot = state.game.players.findIndex(p => p.name.startsWith('P') && p.name.length < 3); // Simple heuristic
+                        // Actually, simplified: just assign next available index > 0
+                        // Since this is P2P full mesh or Star? Star is easier (Host manages).
+                        // Let's assume Host manages state.
+                    });
+                    c.on('data', (d) => app.handleData(d, c));
+                    app.conn[c.peer] = c;
+                });
+            },
+            joinRoomPrompt: () => {
+                document.getElementById('join-input-area').classList.remove('hidden');
+            },
+            joinRoom: () => {
+                const code = document.getElementById('input-room').value.toUpperCase();
+                const name = document.getElementById('input-name').value || "Guest";
+
+                app.peer = new Peer();
+                app.peer.on('open', () => {
+                    const conn = app.peer.connect(PEER_PREFIX + code);
+                    conn.on('open', () => {
+                        conn.send({ type: 'JOIN', name });
+                        state.roomCode = code;
+                        document.getElementById('room-code').innerText = code;
+                    });
+                    conn.on('data', (d) => app.handleData(d, conn));
+                    app.conn['host'] = conn;
+                });
+            },
+            send: (data) => {
+                if(state.myIndex === 0) {
+                    // I am host
+                    app.handleData(data, {peer: 'me'}); // Process locally
+                    // Broadcast
+                    Object.values(app.conn).forEach(c => c.send(data));
+                } else {
+                    app.conn['host'].send(data);
+                }
+            },
+            handleData: (d, conn) => {
+                // HOST LOGIC
+                if(state.myIndex === 0) {
+                    if(d.type === 'JOIN') {
+                        // Assign slot
+                        let idx = state.game.players.findIndex((p, i) => i>0 && (p.name === 'P'+(i+1) || p.peerId === undefined));
+                        if(idx !== -1) {
+                            state.game.players[idx].name = d.name;
+                            state.game.players[idx].peerId = conn.peer;
+
+                            // Send state to everyone
+                            const update = { type: 'STATE', game: state.game, myIdx: idx };
+                            conn.send(update); // Send specifically to new joiner with their index
+
+                            // Broadcast names update
+                            Object.values(app.conn).forEach(c => {
+                                if(c.peer !== conn.peer) c.send({ type: 'STATE', game: state.game });
+                            });
+
+                            ui.updateNames(state.game.players);
+                        }
+                    } else if (d.type === 'ROLL') {
+                        game.handleRoll(d.val);
+                        Object.values(app.conn).forEach(c => c.send({ type: 'UPDATE_GAME', game: state.game }));
+                    } else if (d.type === 'MOVE') {
+                        // Identify player from connection? No, trust payload for now or match peerId
+                        // Ideally check turn
+                        game.handleMove(state.game.turn, d.tIdx);
+                         Object.values(app.conn).forEach(c => c.send({ type: 'UPDATE_GAME', game: state.game }));
+                    }
+                }
+                // CLIENT LOGIC
+                else {
+                    if(d.type === 'STATE') {
+                        state.game = d.game;
+                        if(d.myIdx !== undefined) state.myIndex = d.myIdx;
+                        ui.screen('screen-game');
+                        game.init();
+                        ui.updateNames(state.game.players);
+                    } else if (d.type === 'UPDATE_GAME') {
+                        const oldDice = state.game.diceVal;
+                        state.game = d.game;
+                        if(state.game.diceVal !== oldDice && state.game.diceVal > 0) ui.renderDice(state.game.diceVal);
+                        ui.renderTokens();
+                        ui.updateNames(state.game.players);
+                        app.updateStatus();
+                    }
+                }
+            },
+            updateStatus: () => {
+                const turnName = state.game.players[state.game.turn].name;
+                const isMe = state.game.turn === state.myIndex;
+                const phase = state.game.phase === 'roll' ? 'Mengocok Dadu' : 'Jalan';
+                document.getElementById('turn-indicator').innerText = isMe ? `Giliran Kamu (${phase})` : `${turnName} (${phase})`;
+                document.getElementById('turn-indicator').className = `text-xs font-bold px-4 py-1 rounded-full ${isMe ? 'bg-green-600 animate-pulse' : 'bg-slate-700'}`;
+            }
+        };
+
+        // Init
+        app.init();
+
+        // Populate Grid for Visual Debug
+        game.init();
+
+    </script>
+</body>
+</html>

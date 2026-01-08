@@ -136,6 +136,10 @@
                 <button onclick="window.app.showJoinInput()" class="bg-gradient-to-r from-emerald-600 to-emerald-500 py-4 rounded-xl font-bold hover:scale-105 active:scale-95 transition shadow-lg shadow-emerald-500/30 text-sm sm:text-base">GABUNG</button>
             </div>
             
+            <button onclick="window.location.href='ludo.html?name=' + encodeURIComponent(document.getElementById('input-name').value)" class="w-full bg-slate-800 border border-slate-700 py-3 rounded-xl font-bold text-yellow-400 mb-4 hover:bg-slate-700 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-dice"></i> Main Ludo Bird (4 Player)
+            </button>
+
             <div id="join-area" class="mt-4 hidden animate__animated animate__fadeInUp">
                 <input type="text" id="input-room-code" maxlength="4" placeholder="KODE ROOM" class="w-full p-4 rounded-xl bg-slate-900/80 text-center font-mono text-2xl tracking-[0.5em] uppercase border border-slate-600 outline-none focus:border-yellow-400 text-yellow-400">
                 <button onclick="window.app.joinRoom()" class="w-full mt-3 bg-yellow-500 text-black py-3 rounded-xl font-black tracking-wide hover:bg-yellow-400 active:scale-95 transition">MASUK</button>
