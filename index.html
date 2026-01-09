@@ -180,8 +180,12 @@
                 <button onclick="window.audio.playSfx('click'); window.app.showJoinInput()" class="bg-gradient-to-r from-emerald-600 to-emerald-500 py-4 rounded-xl font-bold hover:scale-105 active:scale-95 transition shadow-lg shadow-emerald-500/30 text-sm sm:text-base">GABUNG</button>
             </div>
             
-            <button onclick="window.audio.playSfx('click'); window.location.href='ludo.html?name=' + encodeURIComponent(document.getElementById('input-name').value)" class="w-full bg-slate-800 border border-slate-700 py-3 rounded-xl font-bold text-yellow-400 mb-4 hover:bg-slate-700 transition flex items-center justify-center gap-2">
+            <button onclick="window.audio.playSfx('click'); window.location.href='ludo.html?name=' + encodeURIComponent(document.getElementById('input-name').value)" class="w-full bg-slate-800 border border-slate-700 py-3 rounded-xl font-bold text-yellow-400 mb-2 hover:bg-slate-700 transition flex items-center justify-center gap-2">
                 <i class="fa-solid fa-dice"></i> Main Ludo Bird (4 Player)
+            </button>
+
+            <button onclick="window.audio.playSfx('click'); window.location.href='monopoly.html?name=' + encodeURIComponent(document.getElementById('input-name').value)" class="w-full bg-slate-800 border border-slate-700 py-3 rounded-xl font-bold text-green-400 mb-4 hover:bg-slate-700 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-city"></i> Main Monopoly (4 Player)
             </button>
 
             <div id="join-area" class="mt-4 hidden animate__animated animate__fadeInUp">
