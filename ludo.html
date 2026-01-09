@@ -74,9 +74,21 @@
             border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
             padding: 8px 16px; display: flex; align-items: center; gap: 10px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            max-width: 90%; transition: all 0.3s;
+            max-width: 90%; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
         }
-        #music-widget:hover { transform: scale(1.02); border-color: rgba(255,255,255,0.3); }
+        #music-widget.minimized {
+            width: 50px; height: 50px; padding: 0; border-radius: 50%;
+            justify-content: center; animation: spin 10s linear infinite;
+            border: 2px solid #fbbf24; background: black;
+        }
+        #music-widget.minimized > *:not(.logo-icon) { display: none; }
+        #music-widget .logo-icon { display: none; font-size: 24px; color: #fbbf24; }
+        #music-widget.minimized .logo-icon { display: block; }
+        #music-widget:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.5); opacity: 1 !important; }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         .marquee { overflow: hidden; white-space: nowrap; max-width: 150px; font-size: 10px; color: #fbbf24; font-weight: bold; }
         .visualizer { display: flex; gap: 2px; height: 10px; align-items: flex-end; }
         .visualizer div { width: 3px; background: #fbbf24; animation: eq 0.5s infinite alternate; }
@@ -102,8 +114,8 @@
             <div class="bg-black/40 p-2 rounded-xl mb-4 flex justify-between items-center">
                 <span class="text-[10px] text-slate-400 font-bold ml-2">NETWORK:</span>
                 <div class="flex gap-1">
-                    <button id="mode-simple" onclick="app.setNetworkMode('simple')" class="toggle-btn active">SIMPLE PEER</button>
-                    <button id="mode-peerjs" onclick="app.setNetworkMode('peerjs')" class="toggle-btn">PEER JS</button>
+                    <button id="mode-simple" onclick="app.setNetworkMode('simple')" class="toggle-btn">SIMPLE PEER</button>
+                    <button id="mode-peerjs" onclick="app.setNetworkMode('peerjs')" class="toggle-btn active">PEER JS</button>
                 </div>
             </div>
 
@@ -192,15 +204,26 @@
     </div>
 
     <!-- MUSIC WIDGET -->
-    <div id="music-widget" class="animate__animated animate__fadeInUp">
+    <div id="music-widget" class="animate__animated animate__fadeInUp" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()">
+        <i class="fa-solid fa-compact-disc logo-icon"></i>
         <div class="visualizer"><div></div><div></div><div></div></div>
-        <div class="flex flex-col">
+        <div class="flex flex-col mr-2">
             <div id="music-title" class="marquee">Memuat Musik...</div>
             <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
         </div>
-        <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-xs"><i class="fa-solid fa-volume-high"></i></button>
-        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs"><i class="fa-solid fa-search"></i></button>
+        <div class="flex gap-1">
+             <button onclick="window.audio.prev()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
+             <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
+             <button onclick="window.audio.next()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
     </div>
+
+    <!-- VOICE BUTTON (Fixed Bottom Left) -->
+    <button id="btn-mic" onclick="app.toggleVoice()" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
+        <i class="fa-solid fa-microphone-slash"></i>
+    </button>
+    <div id="voice-streams" class="hidden"></div>
 
     <!-- MUSIC SEARCH MODAL -->
     <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
@@ -248,12 +271,18 @@
     <script>
         const PEER_PREFIX = "NGH-LUDO-V1-";
 
-        // AUDIO SYSTEM (Reused)
+        // AUDIO SYSTEM
         class AudioManager {
             constructor() {
-                this.bgm = new Audio(); this.bgm.volume = 0.3; this.bgm.onended = () => this.handleTrackEnd(); this.isMuted = false; this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.bgm = new Audio(); this.bgm.volume = 0.3; this.bgm.onended = () => this.handleTrackEnd();
+                this.isMuted = false; this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.history = []; this.histIdx = -1;
+                this.timer = null;
                 this.playRandomIndo();
             }
+            startTimer() { clearTimeout(this.timer); this.timer = setTimeout(() => document.getElementById('music-widget').classList.add('minimized'), 5000); }
+            resetTimer() { clearTimeout(this.timer); document.getElementById('music-widget').classList.remove('minimized'); }
+
             playSfx(type) {
                 if(this.isMuted) return; const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination);
                 if(type === 'click') { o.type = 'sine'; o.frequency.value = 800; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.1); o.start(); o.stop(this.ctx.currentTime + 0.1); }
@@ -261,13 +290,28 @@
                 else if (type === 'move') { o.type = 'triangle'; o.frequency.value = 600; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.15); o.start(); o.stop(this.ctx.currentTime + 0.15); }
                 else if (type === 'win') { o.type = 'square'; o.frequency.setValueAtTime(400, this.ctx.currentTime); o.frequency.setValueAtTime(800, this.ctx.currentTime + 0.2); g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5); o.start(); o.stop(this.ctx.currentTime + 0.5); }
             }
-            playMusic(url, title, artist) { this.bgm.src = url; this.bgm.play().catch(e => console.log("Autoplay blocked", e)); this.updateUI(title, artist); }
+            playMusic(url, title, artist, addToHist=true) {
+                this.bgm.src = url; this.bgm.play().catch(e => console.log("Autoplay blocked", e));
+                this.updateUI(title, artist); this.startTimer();
+                if(addToHist) {
+                    if(this.history.length === 0 || this.history[this.history.length-1].url !== url) {
+                         this.history.push({url, title, artist});
+                         this.histIdx = this.history.length - 1;
+                    }
+                }
+            }
             toggleMute() { this.isMuted = !this.isMuted; this.bgm.muted = this.isMuted; document.getElementById('btn-mute').innerHTML = this.isMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>'; document.querySelector('.visualizer').style.opacity = this.isMuted ? 0 : 1; }
             async playRandomIndo() { const terms = ['Indonesia Pop', 'Lagu Indonesia', 'Indo Hits', 'Dangdut', 'Band Indonesia']; const term = terms[Math.floor(Math.random()*terms.length)]; this.fetchAndPlay(term, true); }
-            async fetchAndPlay(term, random=false) { try { const offset = random ? Math.floor(Math.random() * 50) : 0; const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&limit=1&offset=${offset}&media=music&country=ID`); const data = await res.json(); if(data.results && data.results.length > 0) { const track = data.results[0]; if(state.myIndex === 0) { app.send({type: 'MUSIC_SYNC', url: track.previewUrl, title: track.trackName, artist: track.artistName}); } this.playMusic(track.previewUrl, track.trackName, track.artistName); } } catch(e) {} }
-            handleTrackEnd() { if(state.myIndex === 0) { this.playRandomIndo(); } }
+            async fetchAndPlay(term, random=false) { try { const offset = random ? Math.floor(Math.random() * 50) : 0; const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&limit=1&offset=${offset}&media=music&country=ID`); const data = await res.json(); if(data.results && data.results.length > 0) { const track = data.results[0]; this.syncAndPlay(track.previewUrl, track.trackName, track.artistName); } } catch(e) {} }
+            syncAndPlay(url, title, artist) {
+                if(state.myIndex === 0) app.send({type: 'MUSIC_SYNC', url, title, artist});
+                this.playMusic(url, title, artist);
+            }
+            handleTrackEnd() { if(state.myIndex === 0) this.next(); }
+            next() { if(state.myIndex !== 0) return; if(this.histIdx < this.history.length - 1) { this.histIdx++; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } else { this.playRandomIndo(); } }
+            prev() { if(state.myIndex !== 0) return; if(this.histIdx > 0) { this.histIdx--; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } }
             openSearch() { document.getElementById('modal-music').classList.remove('hidden'); }
-            async search() { const q = document.getElementById('music-search-input').value; if(!q) return; const list = document.getElementById('music-results'); list.innerHTML = '<div class="text-center animate-pulse">Mencari...</div>'; try { const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=10&media=music&country=ID`); const data = await res.json(); list.innerHTML = ''; data.results.forEach(t => { const div = document.createElement('div'); div.className = "flex justify-between items-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer"; div.innerHTML = `<div class="truncate w-48"><div class="font-bold text-yellow-400">${t.trackName}</div><div class="text-[10px] text-slate-400">${t.artistName}</div></div><button class="text-xs bg-blue-600 px-2 py-1 rounded"><i class="fa-solid fa-play"></i></button>`; div.onclick = () => { if(state.myIndex === 0) { app.send({type: 'MUSIC_SYNC', url: t.previewUrl, title: t.trackName, artist: t.artistName}); this.playMusic(t.previewUrl, t.trackName, t.artistName); } else { app.sendHost({type: 'REQ_MUSIC', url: t.previewUrl, title: t.trackName, artist: t.artistName}); alert("Request dikirim ke Host"); } document.getElementById('modal-music').classList.add('hidden'); }; list.appendChild(div); }); } catch(e) { list.innerHTML = 'Error.'; } }
+            async search() { const q = document.getElementById('music-search-input').value; if(!q) return; const list = document.getElementById('music-results'); list.innerHTML = '<div class="text-center animate-pulse">Mencari...</div>'; try { const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=10&media=music&country=ID`); const data = await res.json(); list.innerHTML = ''; data.results.forEach(t => { const div = document.createElement('div'); div.className = "flex justify-between items-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer"; div.innerHTML = `<div class="truncate w-48"><div class="font-bold text-yellow-400">${t.trackName}</div><div class="text-[10px] text-slate-400">${t.artistName}</div></div><button class="text-xs bg-blue-600 px-2 py-1 rounded"><i class="fa-solid fa-play"></i></button>`; div.onclick = () => { if(state.myIndex === 0) { this.syncAndPlay(t.previewUrl, t.trackName, t.artistName); } else { app.sendHost({type: 'REQ_MUSIC', url: t.previewUrl, title: t.trackName, artist: t.artistName}); alert("Request dikirim ke Host"); } document.getElementById('modal-music').classList.add('hidden'); }; list.appendChild(div); }); } catch(e) { list.innerHTML = 'Error.'; } }
             updateUI(t, a) { document.getElementById('music-title').innerText = t; document.getElementById('music-artist').innerText = a; }
         }
 
@@ -307,7 +351,7 @@
                     }[val] || [0,0];
                     d.style.transform = `rotateX(${rot[0]}deg) rotateY(${rot[1]}deg)`;
                     v.innerText = val;
-                }, 500);
+                }, 800);
             },
             renderBoard: () => {
                 const board = document.querySelector('.ludo-board');
@@ -320,11 +364,12 @@
             },
             renderTokens: () => {
                 document.querySelectorAll('.token').forEach(t => t.remove());
-                const colors = ['green', 'yellow', 'blue', 'red'];
+                const colors = ['#22c55e', '#eab308', '#3b82f6', '#ef4444'];
                 state.game.players.forEach((p, pIdx) => {
                     p.tokens.forEach((pos, tIdx) => {
                         const el = document.createElement('div');
-                        el.className = `token bg-${colors[pIdx]}-500`;
+                        el.className = `token`;
+                        el.style.backgroundColor = colors[pIdx];
                         el.onclick = () => game.moveToken(tIdx);
                         if(state.game.turn === pIdx && state.game.phase === 'move' && state.myIndex === pIdx) {
                             if(game.canMove(pIdx, tIdx, state.game.diceVal)) el.classList.add('active');
@@ -353,12 +398,12 @@
         const homeRunCoords = [ [[8,2], [8,3], [8,4], [8,5], [8,6], [8,7]], [[2,8], [3,8], [4,8], [5,8], [6,8], [7,8]], [[8,14], [8,13], [8,12], [8,11], [8,10], [8,9]], [[14,8], [13,8], [12,8], [11,8], [10,8], [9,8]] ];
         function getCellForPos(pIdx, localPos) { if(localPos < 52) { const offset = pIdx * 13; const globalPos = (localPos + offset) % 52; const c = loopCoords[globalPos]; return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`); } else { const hrIdx = localPos - 52; if(hrIdx < 6) { const c = homeRunCoords[pIdx][hrIdx]; return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`); } return null; } }
 
-        const state = { myIndex: -1, roomCode: '', networkMode: 'simple', game: { players: [ { name: 'P1', tokens: [-1,-1,-1,-1], baseColor: 'green' }, { name: 'P2', tokens: [-1,-1,-1,-1], baseColor: 'yellow' }, { name: 'P3', tokens: [-1,-1,-1,-1], baseColor: 'blue' }, { name: 'P4', tokens: [-1,-1,-1,-1], baseColor: 'red' } ], turn: 0, diceVal: 0, phase: 'roll', winners: [] } };
+        const state = { myIndex: -1, roomCode: '', networkMode: 'peerjs', game: { players: [ { name: 'P1', tokens: [-1,-1,-1,-1], baseColor: 'green' }, { name: 'P2', tokens: [-1,-1,-1,-1], baseColor: 'yellow' }, { name: 'P3', tokens: [-1,-1,-1,-1], baseColor: 'blue' }, { name: 'P4', tokens: [-1,-1,-1,-1], baseColor: 'red' } ], turn: 0, diceVal: 0, phase: 'roll', winners: [] } };
 
         const game = {
             init: () => { ui.renderBoard(); ui.renderTokens(); },
             rollDice: () => { if(state.game.turn !== state.myIndex) return; if(state.game.phase !== 'roll') return; const val = Math.floor(Math.random() * 6) + 1; app.send({ type: 'ROLL', val }); },
-            handleRoll: (val) => { state.game.diceVal = val; ui.renderDice(val); if(game.hasValidMoves(state.game.turn, val)) { state.game.phase = 'move'; } else { setTimeout(game.nextTurn, 1000); } ui.renderTokens(); app.updateStatus(); },
+            handleRoll: (val) => { state.game.diceVal = val; ui.renderDice(val); if(game.hasValidMoves(state.game.turn, val)) { state.game.phase = 'move'; } else { setTimeout(game.nextTurn, 1500); } ui.renderTokens(); app.updateStatus(); },
             hasValidMoves: (pIdx, roll) => { return state.game.players[pIdx].tokens.some((t, i) => game.canMove(pIdx, i, roll)); },
             canMove: (pIdx, tIdx, roll) => { const pos = state.game.players[pIdx].tokens[tIdx]; if(pos === 99) return false; if(pos === -1) return roll === 6; if(pos + roll > 57) return false; return true; },
             moveToken: (tIdx) => { if(state.game.turn !== state.myIndex) return; if(state.game.phase !== 'move') return; if(!game.canMove(state.game.turn, tIdx, state.game.diceVal)) return; app.send({ type: 'MOVE', tIdx }); },
@@ -483,22 +528,72 @@
                 const data = document.getElementById('other-signal-data').value;
                 if(!data) return;
                 try { const signal = JSON.parse(data); simplePeer.signal(signal); document.getElementById('modal-signal').classList.add('hidden'); } catch(e) { alert("Kode tidak valid."); }
+            },
+            toggleVoice: async () => {
+                const btn = document.getElementById('btn-mic');
+                const isAct = btn.classList.contains('text-red-500');
+                if(isAct) {
+                    if(window.myStream) window.myStream.getTracks().forEach(t => t.stop());
+                    window.myStream = null;
+                    btn.classList.remove('text-red-500', 'border-red-500');
+                    btn.classList.add('text-slate-400');
+                    btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+                } else {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+                        window.myStream = stream;
+                        btn.classList.add('text-red-500', 'border-red-500');
+                        btn.classList.remove('text-slate-400');
+                        btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+
+                        if(state.networkMode === 'peerjs' && peerInstance) {
+                             if(state.myIndex === 0) {
+                                 Object.values(connections).forEach(c => peerInstance.call(c.peer, stream));
+                             } else if(peerInstance.conn) {
+                                 peerInstance.call(peerInstance.conn.peer, stream);
+                             }
+                        }
+                    } catch(e) { alert("Gagal akses mic: " + e); }
+                }
+            },
+            addAudioStream: (stream) => {
+                const a = document.createElement('audio');
+                a.srcObject = stream;
+                a.play().catch(e=>console.log(e));
+                document.getElementById('voice-streams').appendChild(a);
             }
         };
 
         // --- NETWORK IMPL ---
         const initPeerJS = (id, targetId) => {
             const peer = new Peer(id, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+            peerInstance = peer;
+
+            peer.on('call', (call) => {
+                call.answer();
+                call.on('stream', (remoteStream) => {
+                    app.addAudioStream(remoteStream);
+                });
+            });
+
             peer.on('open', (pid) => {
                 if(state.myIndex === 0) { // Host
                     state.roomCode = pid.replace(PEER_PREFIX, '');
                     document.getElementById('room-code').innerText = state.roomCode;
+                    document.getElementById('btn-mic').classList.remove('hidden');
+                    state.game.players[0].peerId = pid; // Sync Host ID
                     ui.screen('screen-game');
                     ui.updateNames(state.game.players);
                     game.init();
                 } else { // Join
                     const conn = peer.connect(PEER_PREFIX + targetId);
-                    conn.on('open', () => { conn.send({ type: 'JOIN', name: document.getElementById('input-name').value }); state.roomCode = targetId; document.getElementById('room-code').innerText = targetId; });
+                    peer.conn = conn;
+                    conn.on('open', () => {
+                        document.getElementById('btn-mic').classList.remove('hidden');
+                        conn.send({ type: 'JOIN', name: document.getElementById('input-name').value });
+                        state.roomCode = targetId;
+                        document.getElementById('room-code').innerText = targetId;
+                    });
                     conn.on('data', (d) => app.handleData(d, conn));
                     connections['host'] = conn;
                 }
