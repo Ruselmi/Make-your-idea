@@ -146,12 +146,13 @@
 
         <div class="board-container relative shadow-2xl" id="board">
             <div class="center-area">
-                <h2 class="text-4xl font-black text-white/20 -rotate-45 select-none">MONOPOLY</h2>
-                <div class="flex gap-4 mt-4 mb-4">
-                    <div id="d1" class="w-10 h-10 bg-white text-black text-2xl font-bold flex items-center justify-center rounded">1</div>
-                    <div id="d2" class="w-10 h-10 bg-white text-black text-2xl font-bold flex items-center justify-center rounded">1</div>
+                <div class="center-logo">MONOPOLY</div>
+                <div id="game-log"></div>
+                <div class="flex gap-4 mt-20 mb-4 z-10">
+                    <div id="d1" class="w-10 h-10 bg-white text-black text-2xl font-bold flex items-center justify-center rounded shadow-lg">1</div>
+                    <div id="d2" class="w-10 h-10 bg-white text-black text-2xl font-bold flex items-center justify-center rounded shadow-lg">1</div>
                 </div>
-                <button id="btn-roll" onclick="game.roll()" class="bg-yellow-500 text-black px-8 py-3 rounded-full font-black shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition hover:scale-105">LEMPAR DADU</button>
+                <button id="btn-roll" onclick="game.roll()" class="z-10 bg-yellow-500 text-black px-8 py-3 rounded-full font-black shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition hover:scale-105 border-2 border-yellow-300">LEMPAR DADU</button>
             </div>
         </div>
 
@@ -391,6 +392,12 @@
                     c.appendChild(b);
                 });
                 document.getElementById('modal-action').classList.remove('hidden');
+            },
+            log: (msg) => {
+                const l = document.getElementById('game-log');
+                const d = document.createElement('div'); d.className='log-entry'; d.innerText = msg;
+                l.prepend(d);
+                if(l.children.length > 20) l.lastChild.remove();
             }
         };
 
@@ -415,34 +422,48 @@
                 document.getElementById('d1').innerText = d1;
                 document.getElementById('d2').innerText = d2;
                 const p = state.game.players[state.game.turn];
+
+                const oldPos = p.pos;
                 p.pos = (p.pos + d1 + d2) % 40;
+
+                // PASS GO LOGIC
+                if(p.pos < oldPos) {
+                    p.money += 200;
+                    ui.log(`${p.name} lewat GO (+200)`);
+                }
+
                 ui.renderPlayers();
-                // Logic land (only current turn player computes, others wait for sync/action)
-                // Actually, logic active on all clients? No, logic active on turn player, then they broadcast result.
-                // Better: Logic active on turn player, sends action (Buy/Pay) to others.
                 if(state.game.turn === state.myIndex) setTimeout(() => game.land(p), 1000);
             },
             land: (p) => {
                 const s = SPACES[p.pos];
+                ui.log(`${p.name} mendarat di ${s.name}`);
+
                 if(s.type === 'prop' || s.type === 'station' || s.type === 'util') {
                     if(s.owner === undefined) {
                         if(p.money >= s.price) {
-                            ui.showModal(s.name, `Harga: $${s.price}. Beli?`, [
+                            ui.showModal(s.name, `Harga: $${s.price}. Saldo: $${p.money}. Beli?`, [
                                 {text: "BELI", cls: "bg-green-600 text-white", cb: () => app.send({type:'BUY', idx: p.pos})},
                                 {text: "LEWATI", cls: "bg-slate-600 text-white", cb: () => app.send({type:'END_TURN'})}
                             ]);
                         } else {
+                            ui.log(`${p.name} tidak cukup uang untuk beli.`);
                             app.send({type:'END_TURN'}); // Auto skip if no money
                         }
                     } else if (s.owner !== state.myIndex) {
                         const rent = s.rent || 20;
-                        app.send({type:'PAY', amount: rent, to: s.owner});
+                        ui.showModal("BAYAR SEWA", `Milik ${state.game.players[s.owner].name}. Biaya: $${rent}`, [
+                             {text: "BAYAR", cls: "bg-red-600 text-white", cb: () => app.send({type:'PAY', amount: rent, to: s.owner})}
+                        ]);
                     } else {
                         app.send({type:'END_TURN'});
                     }
                 } else if (s.type === 'tax') {
-                    app.send({type:'PAY', amount: s.cost, to: 'bank'});
+                    ui.showModal("PAJAK", `Bayar Pajak: $${s.cost}`, [
+                        {text: "BAYAR", cls: "bg-red-600 text-white", cb: () => app.send({type:'PAY', amount: s.cost, to: 'bank'})}
+                    ]);
                 } else if (s.type === 'goto_jail') {
+                    ui.log(`${p.name} Masuk Penjara!`);
                     app.send({type:'JAIL'});
                 } else {
                     app.send({type:'END_TURN'});
@@ -454,12 +475,18 @@
                     p.money -= s.price; s.owner = pid; p.props.push(idx);
                     document.getElementById(`space-${idx}`).style.borderColor = ['#ef4444','#3b82f6','#22c55e','#eab308'][pid%4];
                     document.getElementById(`space-${idx}`).style.borderWidth = '3px';
+                    ui.log(`${p.name} membeli ${s.name}`);
                 }
                 if(pid === state.game.turn) game.nextTurn();
             },
             pay: (fromPid, amount, toPid) => {
                 const p = state.game.players[fromPid]; p.money -= amount;
-                if(toPid !== 'bank') state.game.players[toPid].money += amount;
+                if(toPid !== 'bank') {
+                    state.game.players[toPid].money += amount;
+                    ui.log(`${p.name} bayar $${amount} ke ${state.game.players[toPid].name}`);
+                } else {
+                    ui.log(`${p.name} bayar $${amount} ke Bank`);
+                }
                 if(fromPid === state.game.turn) game.nextTurn();
             },
             nextTurn: () => {
