@@ -14,28 +14,57 @@
         body { font-family: 'Poppins', sans-serif; background: #0f172a; color: white; overflow: hidden; touch-action: none; }
         .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
 
-        /* MONOPOLY BOARD */
+        /* MONOPOLY BOARD - HD */
         .board-container {
-            width: 100%; max-width: 600px; aspect-ratio: 1;
-            background: #cde6d0; border: 4px solid #333;
+            width: 100%; max-width: 650px; aspect-ratio: 1;
+            background: #1b4d3e; /* Deep Felt Green */
+            border: 12px solid #5d4037; /* Wood Frame */
+            border-radius: 6px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 0 100px rgba(0,0,0,0.6);
             display: grid; grid-template-columns: 1.5fr repeat(9, 1fr) 1.5fr; grid-template-rows: 1.5fr repeat(9, 1fr) 1.5fr;
-            position: relative; font-size: 8px; color: black;
+            position: relative; font-size: 9px; color: black;
         }
-        .space { border: 1px solid #333; position: relative; display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; background: #e0e0e0; }
-        .space-color { width: 100%; height: 20%; border-bottom: 1px solid #333; }
-        .space-name { padding: 2px; font-weight: bold; flex: 1; display: flex; align-items: center; justify-content: center; }
-        .space-price { padding-bottom: 2px; font-size: 7px; }
-        .corner { background: #bfdbfe; }
+        .space {
+            border: 0.5px solid rgba(0,0,0,0.15);
+            position: relative;
+            display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center;
+            background: #f4f4f6; /* Card Stock */
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.05);
+        }
+        .space-color { width: 100%; height: 25%; border-bottom: 1px solid rgba(0,0,0,0.2); box-shadow: inset 0 -2px 5px rgba(0,0,0,0.1); }
+        .space-name { padding: 2px; font-weight: 700; flex: 1; display: flex; align-items: center; justify-content: center; letter-spacing: -0.5px; line-height: 1.1; }
+        .space-price { padding-bottom: 2px; font-size: 7px; color: #555; font-weight: 600; }
+        .corner { background: #e2e8f0; }
 
-        .center-area { grid-column: 2 / 11; grid-row: 2 / 11; background: #0f172a; border: 1px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        .center-area {
+            grid-column: 2 / 11; grid-row: 2 / 11;
+            background: transparent;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; color: white;
+            position: relative;
+        }
+        .center-logo {
+            position: absolute;
+            font-family: 'Bangers';
+            font-size: 6rem;
+            color: rgba(255,255,255,0.08);
+            transform: rotate(-45deg);
+            pointer-events: none;
+            white-space: nowrap;
+        }
 
-        /* TOKENS */
+        /* 3D TOKENS */
         .token {
-            width: 15px; height: 15px; border-radius: 50%;
-            border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            width: 20px; height: 20px; border-radius: 50%;
+            /* 3D Effect */
+            box-shadow: 0 5px 8px rgba(0,0,0,0.6), inset -2px -2px 6px rgba(0,0,0,0.4), inset 2px 2px 6px rgba(255,255,255,0.9);
+            border: none;
             position: absolute; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 50; pointer-events: none;
         }
+        .token-0 { background: radial-gradient(circle at 30% 30%, #fca5a5, #dc2626); } /* Red */
+        .token-1 { background: radial-gradient(circle at 30% 30%, #93c5fd, #2563eb); } /* Blue */
+        .token-2 { background: radial-gradient(circle at 30% 30%, #86efac, #16a34a); } /* Green */
+        .token-3 { background: radial-gradient(circle at 30% 30%, #fef08a, #ca8a04); } /* Yellow */
 
         /* UTILS */
         .hidden { display: none !important; }
@@ -323,16 +352,16 @@
 
                 state.game.players.forEach((p, idx) => {
                     const t = document.createElement('div');
-                    t.className = 'token';
-                    t.style.backgroundColor = pColors[idx % 4];
+                    t.className = `token token-${idx % 4}`;
+                    // t.style.backgroundColor = pColors[idx % 4]; // Removed for HD Gradient
                     const space = document.getElementById(`space-${p.pos}`);
                     if(space) {
                         const rect = space.getBoundingClientRect();
                         const bRect = document.getElementById('board').getBoundingClientRect();
-                        const offX = (idx % 2) * 5;
-                        const offY = (idx > 1) * 5;
-                        t.style.left = (rect.left - bRect.left + 5 + offX) + 'px';
-                        t.style.top = (rect.top - bRect.top + 5 + offY) + 'px';
+                        const offX = (idx % 2) * 6; // Increased offset slightly
+                        const offY = (idx > 1) * 6;
+                        t.style.left = (rect.left - bRect.left + 4 + offX) + 'px';
+                        t.style.top = (rect.top - bRect.top + 4 + offY) + 'px';
                         document.getElementById('board').appendChild(t);
                     }
 
