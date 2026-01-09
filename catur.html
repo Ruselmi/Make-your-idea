@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nusantara Catur (Dual Network)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="catur.css">
+</head>
+<body class="bg-slate-900">
+    <!-- HOME/LOBBY -->
+    <section id="screen-lobby" class="screen bg-slate-900 z-40">
+        <div class="p-4 flex justify-between items-center glass border-b border-white/5 bg-slate-900/80 shrink-0">
+            <div>
+                <button onclick="window.location.href='index.html'" class="text-xs text-slate-400 mb-1 hover:text-white"><i class="fa-solid fa-arrow-left"></i> KEMBALI</button>
+                <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Room Code</div>
+                <div id="lobby-id-disp" class="text-3xl font-mono text-yellow-400 font-black cursor-pointer active:opacity-50 transition" onclick="window.app.copyId()">----</div>
+            </div>
+            <div class="flex gap-1">
+                <button id="mode-simple" onclick="app.setNetworkMode('simple')" class="toggle-btn">SIMPLE PEER</button>
+                <button id="mode-peerjs" onclick="app.setNetworkMode('peerjs')" class="toggle-btn active">PEER JS</button>
+            </div>
+        </div>
+
+        <div class="flex-1 p-4 scroll-y w-full flex flex-col items-center gap-4 pb-safe">
+            <div id="setup-panel" class="w-full max-w-md bg-slate-800/50 backdrop-blur p-5 rounded-2xl border border-white/5 shadow-xl">
+                <input type="text" id="input-name" placeholder="Nama Kamu" class="w-full bg-slate-900 p-3 rounded-lg text-center font-bold text-white mb-4 outline-none border border-slate-600 focus:border-yellow-400">
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="window.audio.playSfx('click'); app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
+                    <button onclick="window.audio.playSfx('click'); app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
+                </div>
+                <div id="join-input-area" class="hidden mt-4">
+                    <div id="join-peerjs-input">
+                        <input type="text" id="input-room" placeholder="Kode Room" class="w-full bg-slate-900 p-3 rounded-lg text-center font-mono uppercase text-xl mb-2 border border-slate-600">
+                        <button onclick="window.audio.playSfx('click'); app.joinRoom()" class="w-full bg-yellow-500 text-black py-2 rounded-lg font-bold">MASUK</button>
+                    </div>
+                    <div id="join-simple-input" class="hidden">
+                        <p class="text-[10px] text-slate-400 mb-2">Manual Signaling Mode</p>
+                        <button onclick="window.audio.playSfx('click'); app.joinRoom()" class="w-full bg-yellow-500 text-black py-3 rounded-lg font-bold">START SIGNALING</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="lobby-panel" class="w-full max-w-md bg-slate-800/50 backdrop-blur p-5 rounded-2xl hidden border border-white/5 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="text-yellow-400 font-bold text-sm uppercase flex items-center gap-2"><i class="fa-solid fa-chess"></i> Pengaturan</div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-slate-400 font-bold block mb-1">Mode Catur</label>
+                        <select id="game-mode-select" onchange="window.app.syncLobbySettings()" class="w-full bg-slate-900 p-3 rounded-xl text-white border border-slate-700 text-sm outline-none shadow-inner">
+                            <option value="CHESS_STD">Standard Chess</option>
+                            <option value="CHESS_ATOMIC">Atomic Chess (Ledakan)</option>
+                            <option value="CHESS_KOTH">King of the Hill</option>
+                            <option value="CHESS_3CHECK">3-Check</option>
+                            <option value="CHESS_REVOLT">Peasant Revolt</option>
+                            <option value="CHESS_UPSIDE">Upside Down</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs text-slate-400 font-bold block mb-1">Warna Host</label>
+                        <select id="chess-color-pref" onchange="window.app.syncLobbySettings()" class="w-full bg-slate-900 p-3 rounded-xl text-white border border-slate-700 text-sm outline-none">
+                            <option value="white">Putih (Jalan Duluan)</option>
+                            <option value="black">Hitam</option>
+                            <option value="random">Acak</option>
+                        </select>
+                    </div>
+                    <!-- Hidden Dummy -->
+                    <select id="initial-card-count" class="hidden"><option value="0">0</option></select>
+                </div>
+                <div class="mt-6 border-t border-white/5 pt-4">
+                    <button id="btn-start-game" onclick="window.audio.playSfx('click'); window.app.prepareGame()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 py-3 rounded-xl font-bold text-white shadow-lg active:scale-95 transition hidden">MULAI GAME</button>
+                    <div id="guest-actions" class="hidden">
+                        <div class="text-center mb-3 text-xs text-slate-400 animate-pulse">Menunggu Host...</div>
+                        <button id="btn-vote-ready" onclick="window.audio.playSfx('click'); window.app.toggleReady()" class="w-full bg-slate-700 py-3 rounded-xl font-bold border border-slate-600 hover:bg-green-600 active:scale-95 transition text-white shadow-lg">SIAP</button>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">Pemain (<span id="player-count">0</span>)</h3>
+                    <div id="lobby-list" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GAME SCREEN -->
+    <section id="screen-game" class="screen hidden bg-slate-800 transition-colors duration-700 z-30">
+        <div class="h-14 glass flex items-center justify-between px-3 shrink-0 relative z-20 shadow-lg">
+            <div class="flex items-center gap-2">
+                <div id="my-avatar" class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-bold text-xs shadow-inner border border-white/20">ME</div>
+                <div id="hud-my-name" class="font-bold text-xs text-white truncate max-w-[80px]">Player</div>
+            </div>
+            <button onclick="window.chat.toggle()" class="w-9 h-9 rounded-full bg-slate-700/50 active:bg-slate-600 relative transition border border-white/10 flex items-center justify-center">
+                <i class="fa-solid fa-comment-dots text-xs"></i>
+                <div id="chat-badge" class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-slate-800 hidden animate-bounce"></div>
+            </button>
+        </div>
+
+        <div id="game-arena-content" class="flex-1 relative overflow-hidden flex flex-col w-full h-full justify-center items-center">
+            <div id="chess-layout" class="w-full h-full flex flex-col items-center justify-center p-4 pb-safe scroll-y">
+                <div class="w-full max-w-[400px] flex flex-col items-center">
+                    <div class="mb-4 flex justify-between w-full text-xs font-bold text-slate-400 bg-slate-900/80 p-3 rounded-xl shadow-lg border border-white/5">
+                        <div id="chess-p1" class="px-2 py-1 bg-white/10 rounded flex items-center gap-2"><div class="w-2 h-2 bg-white rounded-full"></div> Putih</div>
+                        <div id="chess-board-label" class="text-yellow-400 self-center font-mono">MEJA 1</div>
+                        <div id="chess-p2" class="px-2 py-1 bg-black/50 rounded flex items-center gap-2 text-slate-300"><div class="w-2 h-2 bg-black border border-slate-500 rounded-full"></div> Hitam</div>
+                    </div>
+                    <div class="p-1.5 bg-[#4a3024] rounded-lg shadow-2xl relative w-full aspect-square max-w-[90vw]">
+                        <div id="chess-board" class="w-full h-full bg-slate-700 grid grid-cols-8 grid-rows-8 rounded overflow-hidden"></div>
+                    </div>
+                    <div id="chess-status" class="mt-6 text-white font-bold text-xs bg-gradient-to-r from-slate-900 to-slate-800 px-6 py-2 rounded-full border border-white/10 shadow-lg tracking-wide text-center">Menunggu...</div>
+                    <div id="spectator-controls" class="mt-4 hidden gap-4">
+                        <button onclick="window.game.prevBoard()" class="bg-blue-600 w-10 h-10 rounded-full text-white active:bg-blue-700 shadow-lg"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button onclick="window.game.nextBoard()" class="bg-blue-600 w-10 h-10 rounded-full text-white active:bg-blue-700 shadow-lg"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- OVERLAYS -->
+    <div id="chat-overlay" class="fixed inset-y-0 right-0 w-full sm:w-80 glass-dark transform translate-x-full transition-transform duration-300 z-[60] flex flex-col border-l border-white/10 shadow-2xl pb-safe">
+        <div class="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
+            <h3 class="font-bold text-sm text-yellow-400 flex items-center gap-2"><i class="fa-regular fa-comments"></i> Chat</h3>
+            <button onclick="window.chat.toggle()" class="w-8 h-8 rounded-full bg-white/5 active:bg-red-500/20 active:text-red-400 transition flex items-center justify-center">✕</button>
+        </div>
+        <div id="chat-logs" class="flex-1 overflow-y-auto p-4 text-xs space-y-3 overscroll-contain"></div>
+        <form onsubmit="window.chat.send(event)" class="p-3 border-t border-white/10 flex gap-2 bg-slate-900/80 pb-6 sm:pb-3">
+            <input type="text" id="chat-input" class="flex-1 bg-slate-800 rounded-lg px-4 py-3 text-xs text-white border border-slate-700 outline-none focus:border-blue-500 transition" placeholder="Ketik pesan...">
+            <button class="bg-blue-600 w-10 rounded-lg text-xs active:bg-blue-700 transition shadow-lg"><i class="fa-solid fa-paper-plane"></i></button>
+        </form>
+    </div>
+
+    <div id="modal-gameover" class="fixed inset-0 z-[90] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-xl">
+        <div class="bg-slate-900 p-8 rounded-3xl text-center w-full max-w-sm border border-yellow-500/30 shadow-[0_0_50px_rgba(234,179,8,0.2)] animate__animated animate__zoomIn">
+            <div class="w-20 h-20 bg-yellow-400/20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-yellow-400 text-4xl relative">👑</div>
+            <h2 class="text-xl font-black text-white mb-1 uppercase tracking-wider">PEMENANG!</h2>
+            <div id="winner-name" class="text-2xl font-black text-yellow-400 mb-6 drop-shadow-lg">Nama Pemain</div>
+            <div class="space-y-3">
+                <button id="btn-replay" onclick="window.audio.playSfx('click'); window.app.resetGame()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 py-3 rounded-xl font-bold text-white shadow-lg active:scale-95 transition hidden text-sm">MAIN LAGI</button>
+                <div id="waiting-host-msg" class="text-xs text-slate-500 italic hidden animate-pulse mb-4">Menunggu Host...</div>
+                <button onclick="window.audio.playSfx('click'); location.reload()" class="w-full bg-slate-800 py-3 rounded-xl font-bold text-slate-300 border border-slate-700 active:bg-slate-700 transition text-sm">MENU UTAMA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHARED WIDGETS -->
+    <div id="modal-alert" class="fixed inset-0 z-[80] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="bg-slate-800 p-6 rounded-3xl text-center w-full max-w-xs border border-white/10 shadow-2xl">
+            <div id="alert-icon" class="text-4xl mb-3 animate-bounce">⚠️</div>
+            <h3 id="alert-title" class="text-lg font-bold mb-2 text-white">Info</h3>
+            <p id="alert-msg" class="text-slate-400 mb-6 text-xs leading-relaxed">Msg</p>
+            <button onclick="document.getElementById('modal-alert').classList.add('hidden')" class="w-full bg-slate-700 py-3 rounded-xl font-bold text-xs hover:bg-slate-600 transition shadow-lg border border-white/5">TUTUP</button>
+        </div>
+    </div>
+
+    <div id="music-widget" class="animate__animated animate__fadeInUp" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()" onclick="window.audio.resetTimer()">
+        <i class="fa-solid fa-compact-disc logo-icon"></i>
+        <div class="visualizer"><div></div><div></div><div></div></div>
+        <div class="flex flex-col mr-2">
+            <div id="music-title" class="marquee">Memuat Musik...</div>
+            <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
+        </div>
+        <div class="flex gap-1">
+             <button onclick="window.audio.prev()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
+             <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
+             <button onclick="window.audio.next()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
+    </div>
+
+    <button id="btn-mic" onclick="app.toggleVoice()" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
+        <i class="fa-solid fa-microphone-slash"></i>
+    </button>
+    <div id="voice-streams" class="hidden"></div>
+
+    <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
+            <button onclick="document.getElementById('modal-music').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cari Lagu</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="music-search-input" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-white border border-slate-700 outline-none" placeholder="Judul lagu / Artis...">
+                <button onclick="window.audio.search()" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+            </div>
+            <div id="music-results" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs"></div>
+        </div>
+    </div>
+
+    <div id="modal-signal" class="fixed inset-0 z-[120] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm flex flex-col relative">
+            <button onclick="document.getElementById('modal-signal').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Manual Signaling</h2>
+            <div id="signal-step-1">
+                <p class="text-xs text-slate-300 mb-2">1. Salin kode ini & kirim ke teman:</p>
+                <textarea id="my-signal-data" readonly class="w-full h-24 bg-slate-900 p-2 text-[10px] font-mono rounded border border-slate-700 text-green-400 break-all"></textarea>
+                <button onclick="app.copySignal()" class="w-full mt-2 bg-blue-600 py-2 rounded text-xs font-bold mb-2">SALIN KODE SAYA</button>
+                <button onclick="document.getElementById('signal-step-1').classList.add('hidden'); document.getElementById('signal-step-2').classList.remove('hidden');" class="w-full bg-slate-700 py-2 rounded text-xs font-bold mb-4 text-slate-300 border border-slate-600 hover:bg-slate-600">SAYA SUDAH KIRIM →</button>
+            </div>
+            <div id="signal-step-2">
+                <p class="text-xs text-slate-300 mb-2">2. Tempel kode balasan dari teman:</p>
+                <textarea id="other-signal-data" class="w-full h-24 bg-slate-900 p-2 text-[10px] font-mono rounded border border-slate-700 text-white break-all" placeholder="Paste kode teman disini..."></textarea>
+                <button onclick="app.connectSignal()" class="w-full mt-2 bg-green-600 py-2 rounded text-xs font-bold">SAMBUNGKAN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-overlay" class="fixed inset-0 z-[100] bg-slate-900 hidden flex flex-col items-center justify-center">
+        <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h2 class="text-lg font-bold text-white animate-pulse">Menyiapkan...</h2>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="catur.js"></script>
+    <script>
+        // MAIN APP LOGIC FOR CHESS (Ported & Modified)
+        window.state = {
+            myId: null, myName: '', roomCode: null, isHost: false, players: [], gameMode: 'CHESS_STD',
+            networkMode: 'peerjs',
+            game: { active:false, chessBoards:[], playerAssignments:{}, refereeViewIdx:0 }
+        };
+
+        // NETWORK
+        let peerInstance = null; let connections = {}; let simplePeer = null;
+
+        window.app = {
+            setNetworkMode: (mode) => {
+                window.state.networkMode = mode;
+                document.getElementById('mode-simple').classList.toggle('active', mode === 'simple');
+                document.getElementById('mode-peerjs').classList.toggle('active', mode === 'peerjs');
+                if(mode === 'peerjs') { document.getElementById('join-peerjs-input').classList.remove('hidden'); document.getElementById('join-simple-input').classList.add('hidden'); }
+                else { document.getElementById('join-peerjs-input').classList.add('hidden'); document.getElementById('join-simple-input').classList.remove('hidden'); }
+            },
+            createRoom: () => {
+                window.state.myName = document.getElementById('input-name').value || "Host";
+                window.state.isHost = true;
+                window.state.players = [{id:'host', name:window.state.myName, ready:true}];
+                if(window.state.networkMode === 'peerjs') initPeerJS(PEER_PREFIX + window.utils.randId()); else initSimplePeerHost();
+            },
+            joinRoomPrompt: () => { document.getElementById('join-input-area').classList.remove('hidden'); window.app.setNetworkMode(window.state.networkMode); },
+            joinRoom: () => {
+                window.state.myName = document.getElementById('input-name').value || "Guest";
+                window.state.isHost = false;
+                if(window.state.networkMode === 'peerjs') initPeerJS(null); else initSimplePeerGuest();
+            },
+            copySignal: () => { document.getElementById('my-signal-data').select(); document.execCommand('copy'); window.utils.alert("Info", "Kode disalin!"); },
+            connectSignal: () => { try { simplePeer.signal(JSON.parse(document.getElementById('other-signal-data').value)); document.getElementById('modal-signal').classList.add('hidden'); window.utils.showLoading(); } catch(e) { window.utils.alert("Error", "Kode tidak valid."); } },
+            toggleVoice: async () => {
+                const btn = document.getElementById('btn-mic');
+                const isAct = btn.classList.contains('text-red-500');
+                if(isAct) { if(window.myStream) window.myStream.getTracks().forEach(t => t.stop()); window.myStream = null; btn.classList.remove('text-red-500','border-red-500'); btn.classList.add('text-slate-400'); btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>'; }
+                else { try { const s = await navigator.mediaDevices.getUserMedia({audio: true}); window.myStream = s; btn.classList.add('text-red-500','border-red-500'); btn.classList.remove('text-slate-400'); btn.innerHTML = '<i class="fa-solid fa-microphone"></i>'; if(window.state.networkMode==='peerjs' && peerInstance) { if(window.state.isHost) Object.values(connections).forEach(c => peerInstance.call(c.peer, s)); else if(peerInstance.conn) peerInstance.call(peerInstance.conn.peer, s); } } catch(e) { window.utils.alert("Error", "Gagal akses mic: " + e); } }
+            },
+            addAudioStream: (s) => { const a = document.createElement('audio'); a.srcObject = s; a.play().catch(e=>{}); document.getElementById('voice-streams').appendChild(a); },
+
+            // LOGIC HANDLERS
+            copyId: () => { if(window.state.networkMode === 'peerjs') { const ta=document.createElement("textarea"); ta.value=window.state.roomCode; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');}catch(e){} document.body.removeChild(ta); const el=document.getElementById('lobby-id-disp'); const og=el.innerText; el.innerText="SALIN!"; setTimeout(()=>el.innerText=og, 1000); } else { window.utils.alert("Simple Peer", "Gunakan Manual Signaling."); } },
+            handleData: (d, sid) => { // HOST
+                const s = window.state;
+                if(d.type==='JOIN_INFO') { if(!s.players.find(p=>p.id===sid)) { s.players.push({id:sid, name:d.name, ready:false}); window.app.broadcast({type:'UPDATE_PLAYERS', p:s.players}); } const mode = document.getElementById('game-mode-select').value; const cCol = document.getElementById('chess-color-pref').value; window.app.broadcast({type:'LOBBY_SYNC', mode:mode, cCol:cCol}); }
+                else if(d.type==='TOGGLE_READY') { const p=s.players.find(x=>x.id===sid); if(p) p.ready=!p.ready; window.app.broadcast({type:'UPDATE_PLAYERS', p:s.players}); }
+                else if(d.type==='CHAT') window.app.broadcast(d);
+                else if(d.type==='GAME_ACT') window.app.process(sid, d.act, d.pay);
+                else if(d.type==='REQ_MUSIC') { window.app.broadcast({type: 'MUSIC_SYNC', url: d.url, title: d.title, artist: d.artist}); window.audio.playMusic(d.url, d.title, d.artist); }
+            },
+            handleClientData: (d) => { // CLIENT
+                const s = window.state;
+                if(d.type==='REQ_INFO') sendData({type:'JOIN_INFO', name:s.myName});
+                else if(d.type==='UPDATE_PLAYERS') { s.players=d.p; if(s.isHost && !s.players[0].id) s.players[0].id=s.myId; window.ui.updateLobby(); }
+                else if(d.type==='LOBBY_SYNC') { document.getElementById('game-mode-select').value = d.mode; if(d.cCol) document.getElementById('chess-color-pref').value = d.cCol; }
+                else if(d.type==='START') { s.gameMode=d.mode; s.game=d.gs; document.getElementById('modal-gameover').classList.add('hidden'); window.utils.showLoading(() => window.ui.startGame()); }
+                else if(d.type==='UPDATE') { s.game=d.gs; window.ui.render(); if(d.msg && (d.msg.includes('MENANG') || d.msg.includes('CHECKMATE') || d.msg.includes('WIN'))) { window.ui.showVictory(d.msg.replace(' MENANG!','').replace('CHECKMATE!','').replace(' WIN!','').trim()); } }
+                else if(d.type==='CHAT') window.ui.chat(d.name, d.msg);
+                else if(d.type==='MUSIC_SYNC') window.audio.playMusic(d.url, d.title, d.artist);
+            },
+            broadcast: (d) => { Object.values(connections).forEach(c => { if(window.state.networkMode === 'peerjs') c.send(d); else if (c.send) c.send(JSON.stringify(d)); }); window.app.handleClientData(d); },
+            process: (pid, act, pay) => {
+                if(!window.state.isHost) { sendData({type:'GAME_ACT', act, pay}); return; }
+                const res = window.game.handle(pid, act, pay);
+                if(res.up) window.app.broadcast({type:'UPDATE', gs:window.state.game, msg:res.msg});
+            },
+            syncLobbySettings: () => { if(window.state.isHost) { const mode = document.getElementById('game-mode-select').value; const cCol = document.getElementById('chess-color-pref').value; window.app.broadcast({type:'LOBBY_SYNC', mode:mode, cCol:cCol}); } },
+            handleDisconnect: (id) => { window.state.players=window.state.players.filter(p=>p.id!==id); window.app.broadcast({type:'UPDATE_PLAYERS', p:window.state.players}); },
+            toggleReady: () => !window.state.isHost && sendData({type:'TOGGLE_READY'}),
+            prepareGame: () => {
+                const mode = document.getElementById('game-mode-select').value;
+                if(window.state.players.length<2) return window.utils.alert('Error', 'Butuh Min 2 Pemain');
+                window.state.gameMode = mode;
+                const opts = { chessCol: document.getElementById('chess-color-pref').value };
+                window.game.init(mode, opts);
+                window.app.broadcast({type:'START', mode:mode, gs:window.state.game});
+            },
+            resetGame: () => window.state.isHost && window.app.prepareGame()
+        };
+
+        function sendData(d) {
+            if(window.state.networkMode === 'peerjs') { if(window.state.isHost) window.app.broadcast(d); else if(peerInstance && peerInstance.conn) peerInstance.conn.send(d); }
+            else { if(simplePeer && simplePeer.connected) simplePeer.send(JSON.stringify(d)); }
+        }
+
+        const initPeerJS = (id) => {
+            try {
+                const peer = new Peer(id, { config: SHARED_CONFIG });
+                peerInstance = peer;
+                peer.on('call', (c) => { c.answer(); c.on('stream', (s) => window.app.addAudioStream(s)); });
+                peer.on('open', (pid) => {
+                    window.state.myId = pid; document.getElementById('btn-mic').classList.remove('hidden');
+                    if(window.state.isHost) { window.state.roomCode = pid.replace(PEER_PREFIX, ''); window.state.players[0].id = pid; document.getElementById('screen-lobby').classList.remove('hidden'); document.getElementById('setup-panel').classList.add('hidden'); window.ui.updateLobby(); }
+                    else { const code = document.getElementById('input-room').value.toUpperCase(); const hostId = PEER_PREFIX + code.trim(); const conn = peer.connect(hostId); peer.conn = conn; conn.on('open', () => { window.state.roomCode=code; }); conn.on('data', (d) => window.app.handleClientData(d)); conn.on('error', () => { window.utils.alert("Gagal", "Room tidak ditemukan."); }); }
+                });
+                peer.on('connection', (c) => { c.on('data', (d) => window.app.handleData(d, c.peer)); c.on('open', () => { connections[c.peer]=c; c.send({type:'REQ_INFO'}); if(window.myStream) peer.call(c.peer, window.myStream); }); c.on('close', () => window.app.handleDisconnect(c.peer)); });
+            } catch(e) { console.error(e); }
+        };
+
+        const initSimplePeerHost = () => { try { simplePeer = new SimplePeer({ initiator: true, trickle: false }); setupSimplePeerEvents(simplePeer, true); window.state.myId = 'host'; } catch(e) { window.utils.alert("Error", e); } };
+        const initSimplePeerGuest = () => { try { simplePeer = new SimplePeer({ initiator: false, trickle: false }); setupSimplePeerEvents(simplePeer, false); window.state.myId = 'guest'; window.ui.showSignalModal("", 2); } catch(e) { window.utils.alert("Error", e); } };
+        const setupSimplePeerEvents = (p, isHost) => {
+            p.on('signal', d => window.ui.showSignalModal(JSON.stringify(d), 1));
+            p.on('connect', () => { document.getElementById('modal-signal').classList.add('hidden'); window.state.myId = isHost ? 'host' : 'guest'; if(isHost) { document.getElementById('screen-lobby').classList.remove('hidden'); document.getElementById('setup-panel').classList.add('hidden'); window.ui.updateLobby(); connections['guest'] = p; } });
+            p.on('data', d => { const j = JSON.parse(d.toString()); if(isHost) window.app.handleData(j, 'guest'); else window.app.handleClientData(j); });
+            p.on('close', () => { if(isHost) window.app.handleDisconnect('guest'); });
+        };
+
+        // SHARED UI FOR LOBBY
+        window.ui = { ...window.ui,
+            updateLobby: () => {
+                const l = document.getElementById('lobby-list'); l.innerHTML=''; let r=0; window.state.players.forEach(p => { l.innerHTML += `<div class="flex justify-between bg-slate-800/80 backdrop-blur p-4 rounded-xl mb-2 border border-white/5 items-center animate__animated animate__fadeIn"><div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full ${p.ready?'bg-green-500 shadow-[0_0_10px_#22c55e]':'bg-red-500'}"></div> <span class="font-bold">${p.name}</span></div><span class="text-[10px] font-mono opacity-50 bg-white/10 px-2 py-1 rounded">${p.id===window.state.players[0].id ? 'HOST' : 'PLAYER'}</span></div>`; if(p.ready) r++; });
+                document.getElementById('player-count').innerText = window.state.players.length; document.getElementById('lobby-panel').classList.remove('hidden');
+                const isHost = window.state.isHost; const inputs = document.querySelectorAll('#lobby-panel select'); const btnStart = document.getElementById('btn-start-game');
+                if(isHost) { inputs.forEach(i => i.disabled = false); btnStart.classList.remove('hidden'); document.getElementById('guest-actions').classList.add('hidden'); if(r>0) { btnStart.classList.remove('opacity-50','cursor-not-allowed'); btnStart.innerText="MULAI GAME"; btnStart.disabled=false; btnStart.classList.add('animate-pulse'); } else { btnStart.classList.add('opacity-50','cursor-not-allowed'); btnStart.disabled=true; btnStart.classList.remove('animate-pulse'); } } else { inputs.forEach(i => i.disabled = true); btnStart.classList.add('hidden'); document.getElementById('guest-actions').classList.remove('hidden'); }
+            },
+            startGame: () => { document.getElementById('screen-lobby').classList.add('hidden'); document.getElementById('screen-game').classList.remove('hidden'); document.getElementById('hud-my-name').innerText = window.state.myName; window.ui.render(); },
+            chat: (n, m) => { const l=document.getElementById('chat-logs'); l.innerHTML+=`<div class="bg-white/5 p-3 rounded-lg border-l-4 border-blue-500 animate__animated animate__fadeInLeft shadow-sm"><b class="text-blue-300 text-[10px] block mb-1">${n}</b><span class="text-slate-200">${m}</span></div>`; l.scrollTop=l.scrollHeight; if(document.getElementById('chat-overlay').classList.contains('translate-x-full')) document.getElementById('chat-badge').classList.remove('hidden'); },
+            showVictory: (name) => { document.getElementById('winner-name').innerText = name; document.getElementById('modal-gameover').classList.remove('hidden'); if(window.state.isHost) { document.getElementById('btn-replay').classList.remove('hidden'); document.getElementById('waiting-host-msg').classList.add('hidden'); } else { document.getElementById('btn-replay').classList.add('hidden'); document.getElementById('waiting-host-msg').classList.remove('hidden'); } }
+        };
+        window.chat = { toggle: () => { const el = document.getElementById('chat-overlay'); el.classList.toggle('translate-x-full'); if(!el.classList.contains('translate-x-full')) document.getElementById('chat-badge').classList.add('hidden'); }, send: (e) => { e.preventDefault(); const i=document.getElementById('chat-input'); if(i.value){ const msg=i.value; sendData({type:'CHAT', name:window.state.myName, msg}); i.value=''; } } };
+        window.audio = new AudioManager();
+        window.utils.randomName();
+    </script>
+</body>
+</html>

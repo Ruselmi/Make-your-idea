@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nusantara Monopoli v1.0 (Dual Network)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="monopoli.css">
+</head>
+<body class="bg-slate-900">
+    <!-- HOME/LOBBY -->
+    <section id="screen-lobby" class="screen bg-slate-900 z-40">
+        <div class="p-4 flex justify-between items-center glass border-b border-white/5 bg-slate-900/80 shrink-0">
+            <div>
+                <button onclick="window.location.href='index.html'" class="text-xs text-slate-400 mb-1 hover:text-white"><i class="fa-solid fa-arrow-left"></i> KEMBALI</button>
+                <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Room Code</div>
+                <div id="lobby-id-disp" class="text-3xl font-mono text-yellow-400 font-black cursor-pointer active:opacity-50 transition" onclick="window.app.copyId()">----</div>
+            </div>
+            <div class="flex gap-1">
+                <button id="mode-simple" onclick="app.setNetworkMode('simple')" class="toggle-btn">SIMPLE PEER</button>
+                <button id="mode-peerjs" onclick="app.setNetworkMode('peerjs')" class="toggle-btn active">PEER JS</button>
+            </div>
+        </div>
+
+        <div class="flex-1 p-4 scroll-y w-full flex flex-col items-center gap-4 pb-safe">
+            <div id="setup-panel" class="w-full max-w-md bg-slate-800/50 backdrop-blur p-5 rounded-2xl border border-white/5 shadow-xl">
+                <input type="text" id="input-name" placeholder="Nama Kamu" class="w-full bg-slate-900 p-3 rounded-lg text-center font-bold text-white mb-4 outline-none border border-slate-600 focus:border-yellow-400">
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="window.audio.playSfx('click'); app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
+                    <button onclick="window.audio.playSfx('click'); app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
+                </div>
+                <div id="join-input-area" class="hidden mt-4">
+                    <div id="join-peerjs-input">
+                        <input type="text" id="input-room" placeholder="Kode Room" class="w-full bg-slate-900 p-3 rounded-lg text-center font-mono uppercase text-xl mb-2 border border-slate-600">
+                        <button onclick="window.audio.playSfx('click'); app.joinRoom()" class="w-full bg-yellow-500 text-black py-2 rounded-lg font-bold">MASUK</button>
+                    </div>
+                    <div id="join-simple-input" class="hidden">
+                        <p class="text-[10px] text-slate-400 mb-2">Manual Signaling Mode</p>
+                        <button onclick="window.audio.playSfx('click'); app.joinRoom()" class="w-full bg-yellow-500 text-black py-3 rounded-lg font-bold">START SIGNALING</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="lobby-panel" class="w-full max-w-md bg-slate-800/50 backdrop-blur p-5 rounded-2xl hidden border border-white/5 shadow-xl">
+                <div class="mt-6 border-t border-white/5 pt-4">
+                    <button id="btn-start-game" onclick="window.audio.playSfx('click'); window.app.prepareGame()" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 py-3 rounded-xl font-bold text-white shadow-lg active:scale-95 transition hidden">MULAI GAME</button>
+                    <div id="guest-actions" class="hidden">
+                        <div class="text-center mb-3 text-xs text-slate-400 animate-pulse">Menunggu Host...</div>
+                        <button id="btn-vote-ready" onclick="window.audio.playSfx('click'); window.app.toggleReady()" class="w-full bg-slate-700 py-3 rounded-xl font-bold border border-slate-600 hover:bg-green-600 active:scale-95 transition text-white shadow-lg">SIAP</button>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">Pemain (<span id="player-count">0</span>)</h3>
+                    <div id="lobby-list" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GAME SCREEN -->
+    <section id="screen-game" class="screen hidden bg-slate-800 transition-colors duration-700 z-30 flex flex-col">
+        <div class="h-14 glass flex items-center justify-between px-3 shrink-0 relative z-20 shadow-lg">
+            <div class="flex items-center gap-2">
+                <div id="my-avatar" class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center font-bold text-xs shadow-inner border border-white/20">ME</div>
+                <div id="hud-my-name" class="font-bold text-xs text-white truncate max-w-[80px]">Player</div>
+            </div>
+            <div class="absolute left-1/2 -translate-x-1/2 top-3">
+                 <div id="turn-indicator" class="text-[10px] font-bold bg-black/50 px-4 py-1 rounded-full border border-white/10 backdrop-blur-md shadow-xl whitespace-nowrap">Menunggu...</div>
+            </div>
+            <button onclick="window.chat.toggle()" class="w-9 h-9 rounded-full bg-slate-700/50 active:bg-slate-600 relative transition border border-white/10 flex items-center justify-center">
+                <i class="fa-solid fa-comment-dots text-xs"></i>
+                <div id="chat-badge" class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-slate-800 hidden animate-bounce"></div>
+            </button>
+        </div>
+
+        <div id="game-arena-content" class="flex-1 relative overflow-hidden flex flex-col w-full h-full items-center justify-center">
+            <div class="board-container relative shadow-2xl" id="board">
+                <div class="center-area">
+                    <div class="center-logo">MONOPOLY</div>
+                    <div id="game-log"></div>
+                    <div class="flex gap-4 mt-20 mb-4 z-10">
+                        <div id="d1" class="w-10 h-10 bg-white text-black text-2xl font-bold flex items-center justify-center rounded shadow-lg">1</div>
+                        <div id="d2" class="w-10 h-10 bg-white text-black text-2xl font-bold flex items-center justify-center rounded shadow-lg">1</div>
+                    </div>
+                    <button id="btn-roll" onclick="game.roll()" class="z-10 bg-yellow-500 text-black px-8 py-3 rounded-full font-black shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition hover:scale-105 border-2 border-yellow-300">LEMPAR DADU</button>
+                </div>
+            </div>
+            <div id="player-stats" class="w-full max-w-[600px] flex gap-2 mt-4 overflow-x-auto px-4 pb-4"></div>
+        </div>
+    </section>
+
+    <!-- OVERLAYS -->
+    <div id="chat-overlay" class="fixed inset-y-0 right-0 w-full sm:w-80 glass-dark transform translate-x-full transition-transform duration-300 z-[60] flex flex-col border-l border-white/10 shadow-2xl pb-safe">
+        <div class="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
+            <h3 class="font-bold text-sm text-yellow-400 flex items-center gap-2"><i class="fa-regular fa-comments"></i> Chat</h3>
+            <button onclick="window.chat.toggle()" class="w-8 h-8 rounded-full bg-white/5 active:bg-red-500/20 active:text-red-400 transition flex items-center justify-center">✕</button>
+        </div>
+        <div id="chat-logs" class="flex-1 overflow-y-auto p-4 text-xs space-y-3 overscroll-contain"></div>
+        <form onsubmit="window.chat.send(event)" class="p-3 border-t border-white/10 flex gap-2 bg-slate-900/80 pb-6 sm:pb-3">
+            <input type="text" id="chat-input" class="flex-1 bg-slate-800 rounded-lg px-4 py-3 text-xs text-white border border-slate-700 outline-none focus:border-blue-500 transition" placeholder="Ketik pesan...">
+            <button class="bg-blue-600 w-10 rounded-lg text-xs active:bg-blue-700 transition shadow-lg"><i class="fa-solid fa-paper-plane"></i></button>
+        </form>
+    </div>
+
+    <div id="modal-action" class="fixed inset-0 z-50 bg-black/90 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 p-6 rounded-2xl w-full max-w-sm text-center border border-white/10 shadow-2xl transform transition-all scale-100">
+            <h3 id="modal-title" class="text-xl font-bold text-yellow-400 mb-2">Tanah Dijual</h3>
+            <p id="modal-desc" class="text-sm text-slate-300 mb-4">Harga: $200</p>
+            <div class="grid grid-cols-2 gap-3" id="modal-btns"></div>
+        </div>
+    </div>
+
+    <!-- SHARED WIDGETS -->
+    <div id="modal-alert" class="fixed inset-0 z-[80] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="bg-slate-800 p-6 rounded-3xl text-center w-full max-w-xs border border-white/10 shadow-2xl">
+            <div id="alert-icon" class="text-4xl mb-3 animate-bounce">⚠️</div>
+            <h3 id="alert-title" class="text-lg font-bold mb-2 text-white">Info</h3>
+            <p id="alert-msg" class="text-slate-400 mb-6 text-xs leading-relaxed">Msg</p>
+            <button onclick="document.getElementById('modal-alert').classList.add('hidden')" class="w-full bg-slate-700 py-3 rounded-xl font-bold text-xs hover:bg-slate-600 transition shadow-lg border border-white/5">TUTUP</button>
+        </div>
+    </div>
+
+    <div id="music-widget" class="animate__animated animate__fadeInUp" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()" onclick="window.audio.resetTimer()">
+        <i class="fa-solid fa-compact-disc logo-icon"></i>
+        <div class="visualizer"><div></div><div></div><div></div></div>
+        <div class="flex flex-col mr-2">
+            <div id="music-title" class="marquee">Memuat Musik...</div>
+            <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
+        </div>
+        <div class="flex gap-1">
+             <button onclick="window.audio.prev()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
+             <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
+             <button onclick="window.audio.next()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
+    </div>
+
+    <button id="btn-mic" onclick="app.toggleVoice()" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
+        <i class="fa-solid fa-microphone-slash"></i>
+    </button>
+    <div id="voice-streams" class="hidden"></div>
+
+    <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
+            <button onclick="document.getElementById('modal-music').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cari Lagu</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="music-search-input" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-white border border-slate-700 outline-none" placeholder="Judul lagu / Artis...">
+                <button onclick="window.audio.search()" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+            </div>
+            <div id="music-results" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs"></div>
+        </div>
+    </div>
+
+    <div id="modal-signal" class="fixed inset-0 z-[120] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm flex flex-col relative">
+            <button onclick="document.getElementById('modal-signal').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Manual Signaling</h2>
+            <div id="signal-step-1">
+                <p class="text-xs text-slate-300 mb-2">1. Salin kode ini & kirim ke teman:</p>
+                <textarea id="my-signal-data" readonly class="w-full h-24 bg-slate-900 p-2 text-[10px] font-mono rounded border border-slate-700 text-green-400 break-all"></textarea>
+                <button onclick="app.copySignal()" class="w-full mt-2 bg-blue-600 py-2 rounded text-xs font-bold mb-2">SALIN KODE SAYA</button>
+                <button onclick="document.getElementById('signal-step-1').classList.add('hidden'); document.getElementById('signal-step-2').classList.remove('hidden');" class="w-full bg-slate-700 py-2 rounded text-xs font-bold mb-4 text-slate-300 border border-slate-600 hover:bg-slate-600">SAYA SUDAH KIRIM →</button>
+            </div>
+            <div id="signal-step-2">
+                <p class="text-xs text-slate-300 mb-2">2. Tempel kode balasan dari teman:</p>
+                <textarea id="other-signal-data" class="w-full h-24 bg-slate-900 p-2 text-[10px] font-mono rounded border border-slate-700 text-white break-all" placeholder="Paste kode teman disini..."></textarea>
+                <button onclick="app.connectSignal()" class="w-full mt-2 bg-green-600 py-2 rounded text-xs font-bold">SAMBUNGKAN</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-overlay" class="fixed inset-0 z-[100] bg-slate-900 hidden flex flex-col items-center justify-center">
+        <div class="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <h2 class="text-lg font-bold text-white animate-pulse">Menyiapkan...</h2>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="monopoli.js"></script>
+</body>
+</html>

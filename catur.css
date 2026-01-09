@@ -1,0 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Bangers&display=swap');
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: #0f172a;
+    color: white;
+    overflow: hidden;
+    touch-action: pan-x pan-y;
+    -webkit-tap-highlight-color: transparent;
+    margin: 0;
+}
+
+.glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+
+/* CHESS STYLES */
+.chess-sq { display: flex; justify-content: center; align-items: center; font-size: clamp(20px, 6vw, 32px); cursor: pointer; transition: background 0.1s; position: relative; }
+.chess-white { background-color: #ebecd0; color: black; }
+.chess-black { background-color: #779556; color: black; }
+.chess-selected { background-color: #bbcb2b !important; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+.valid-move::after { content: ''; width: 14px; height: 14px; background: rgba(0,0,0,0.2); border-radius: 50%; }
+.valid-capture::after { content: ''; width: 24px; height: 24px; border: 4px solid rgba(0,0,0,0.2); border-radius: 50%; }
+.board-flipped { transform: rotate(180deg); }
+.board-flipped .chess-sq { transform: rotate(180deg); }
+
+/* UTILS */
+.hidden { display: none !important; }
+.screen { width: 100%; height: 100vh; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; overflow: hidden; }

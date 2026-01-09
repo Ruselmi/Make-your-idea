@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Bangers&display=swap');
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: #0f172a;
+    color: white;
+    overflow: hidden;
+    touch-action: pan-x pan-y;
+    -webkit-tap-highlight-color: transparent;
+    margin: 0;
+}
+
+.glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+
+/* --- CARD SCROLL SNAP --- */
+#my-hand-container {
+    display: flex; overflow-x: auto;
+    padding: 40px calc(50% - 35px) 20px calc(50% - 35px);
+    gap: 0px; scroll-behavior: smooth; align-items: flex-end; width: 100%; height: 100%;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+}
+#my-hand-container > div {
+    margin-right: -20px; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), margin 0.3s;
+    flex-shrink: 0; scroll-snap-align: center; scroll-snap-stop: always;
+}
+#my-hand-container > div:hover, #my-hand-container > div:active {
+    transform: translateY(-25px) scale(1.15) rotate(0deg) !important;
+    margin-right: 15px; margin-left: 15px; z-index: 100; box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+}
+
+/* CARD STYLES */
+.uno-card {
+    width: 70px; height: 105px;
+    @media (max-width: 360px) { width: 60px; height: 90px; }
+    border-radius: 10px; position: relative; overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 0 0 2px white;
+    cursor: pointer; user-select: none; display: flex; justify-content: center; align-items: center; background-color: #1e293b;
+    transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform-style: preserve-3d;
+}
+.uno-card::before { content: ''; position: absolute; width: 100%; height: 60%; background: rgba(255,255,255,0.15); transform: rotate(25deg) scale(1.5); opacity: 0.3; pointer-events: none; }
+
+.skin-war { border: 2px solid #ef4444; box-shadow: 0 0 15px rgba(239,68,68,0.4); }
+.skin-zen { border: 2px solid #86efac; border-radius: 20px; opacity: 0.95; }
+.skin-chaos { animation: glitch 2s infinite; border: 2px solid #d946ef; }
+.skin-gold { border: 2px solid #ffd700; background-image: linear-gradient(45deg, rgba(255,215,0,0.2) 25%, transparent 25%); }
+@keyframes glitch { 0% { transform: skew(0deg); } 20% { transform: skew(-2deg); } 40% { transform: skew(2deg); } 100% { transform: skew(0deg); } }
+
+.uno-card .card-oval { width: 80%; height: 75%; background: white; border-radius: 50% / 45%; transform: rotate(-10deg); display: flex; justify-content: center; align-items: center; box-shadow: 2px 4px 8px rgba(0,0,0,0.2); position: absolute; z-index: 1; backface-visibility: hidden; }
+.uno-card .big-symbol { font-family: 'Bangers', cursive; font-size: 32px; -webkit-text-stroke: 1px black; filter: drop-shadow(2px 2px 0px rgba(0,0,0,0.3)); z-index: 2; position: relative; }
+.uno-card .corner-val { position: absolute; font-family: 'Bangers', cursive; font-size: 12px; color: white; text-shadow: 1px 1px 0 #000; z-index: 2; padding: 4px; }
+.tl { top: 2px; left: 4px; }
+.br { bottom: 2px; right: 4px; transform: rotate(180deg); }
+
+.c-red { background: linear-gradient(135deg, #ff5252 0%, #b91c1c 100%); color: #b91c1c; }
+.c-blue { background: linear-gradient(135deg, #448aff 0%, #1565c0 100%); color: #1565c0; }
+.c-green { background: linear-gradient(135deg, #69f0ae 0%, #2e7d32 100%); color: #2e7d32; }
+.c-yellow { background: linear-gradient(135deg, #ffff00 0%, #fbc02d 100%); color: #f57f17; }
+.c-black { background: linear-gradient(135deg, #424242 0%, #000000 100%); color: black; border: 2px solid gold; }
+.c-orange { background: linear-gradient(135deg, #ffab40 0%, #e65100 100%); color: #e65100; }
+.c-teal { background: linear-gradient(135deg, #64ffda 0%, #00695c 100%); color: #00695c; }
+.c-purple { background: linear-gradient(135deg, #e040fb 0%, #7b1fa2 100%); color: #7b1fa2; }
+.c-pink { background: linear-gradient(135deg, #ff4081 0%, #c2185b 100%); color: #c2185b; }
+.c-back-light { background: repeating-linear-gradient(45deg, #ff0000, #ff0000 10px, #000 10px, #000 20px); display: flex; justify-content: center; align-items: center; }
+.c-back-light::after { content: 'UNO'; font-family: 'Bangers'; font-size: 20px; color: #ffeb3b; text-shadow: 2px 2px 0 #000; transform: rotate(-25deg); background: #d32f2f; padding: 2px 6px; border-radius: 50%; border: 2px solid white; }
+.c-back-dark { background: repeating-linear-gradient(45deg, #7b1fa2, #7b1fa2 10px, #000 10px, #000 20px); border-color: #e040fb; }
+
+/* UTILS */
+.hidden { display: none !important; }
+.screen { width: 100%; height: 100vh; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; overflow: hidden; }
+.animate-pop { animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes pop { 0% { transform: scale(0) rotate(180deg); } 100% { transform: scale(1) rotate(0deg); } }
+
+.flip-transition { animation: flip-board 0.8s forwards; }
+@keyframes flip-board {
+    0% { transform: rotateY(0deg) scale(1); }
+    50% { transform: rotateY(90deg) scale(0.8); }
+    100% { transform: rotateY(0deg) scale(1); }
+}
