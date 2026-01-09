@@ -204,7 +204,7 @@
     </div>
 
     <!-- MUSIC WIDGET -->
-    <div id="music-widget" class="animate__animated animate__fadeInUp" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()">
+    <div id="music-widget" class="animate__animated animate__fadeInUp" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()" onclick="window.audio.resetTimer()">
         <i class="fa-solid fa-compact-disc logo-icon"></i>
         <div class="visualizer"><div></div><div></div><div></div></div>
         <div class="flex flex-col mr-2">
@@ -317,7 +317,7 @@
 
         // UTILS
         const utils = {
-            randId: () => Math.random().toString(36).substr(2, 5).toUpperCase(),
+            randId: () => Math.floor(1000 + Math.random() * 9000).toString(),
             sleep: (ms) => new Promise(r => setTimeout(r, ms))
         };
 
@@ -600,7 +600,10 @@
             });
             peer.on('connection', (c) => {
                 c.on('data', (d) => app.handleData(d, c));
-                connections[c.peer] = c;
+                c.on('open', () => {
+                    connections[c.peer] = c;
+                    if(window.myStream) peer.call(c.peer, window.myStream);
+                });
             });
         };
 

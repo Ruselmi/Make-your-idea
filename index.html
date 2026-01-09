@@ -221,7 +221,7 @@
 
     <!-- ... (Other Modals: Music, History, Color, Alert, GameOver - Unchanged) ... -->
     <!-- MUSIC WIDGET -->
-    <div id="music-widget" class="animate__animated animate__fadeInUp" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()">
+    <div id="music-widget" class="animate__animated animate__fadeInUp" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()" onclick="window.audio.resetTimer()">
         <i class="fa-solid fa-compact-disc logo-icon"></i>
         <div class="visualizer"><div></div><div></div><div></div></div>
         <div class="flex flex-col mr-2">
@@ -537,7 +537,7 @@
         }
 
         window.utils = {
-            randomCode: () => Math.random().toString(36).substring(2, 6).toUpperCase(),
+            randomCode: () => Math.floor(1000 + Math.random() * 9000).toString(),
             randomName: () => document.getElementById('input-name').value = "Player" + Math.floor(Math.random()*100),
             shuffle: (array) => { for(let i=array.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [array[i],array[j]]=[array[j],array[i]]; } return array; },
             alert: (t, m, i='⚠️') => { document.getElementById('alert-title').innerText=t; document.getElementById('alert-msg').innerText=m; document.getElementById('alert-icon').innerText=i; document.getElementById('modal-alert').classList.remove('hidden'); },
@@ -816,7 +816,11 @@
                 });
                 peer.on('connection', (c) => {
                     c.on('data', (d) => window.app.handleData(d, c.peer));
-                    c.on('open', () => { connections[c.peer]=c; c.send({type:'REQ_INFO'}); });
+                    c.on('open', () => {
+                        connections[c.peer]=c;
+                        c.send({type:'REQ_INFO'});
+                        if(window.myStream) peer.call(c.peer, window.myStream);
+                    });
                     c.on('close', () => window.app.handleDisconnect(c.peer));
                 });
                 peer.on('error', (e) => window.utils.alert("Error", "Koneksi gagal."));
