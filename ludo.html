@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nusantara Ludo v2.1 (Dual Network)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Bangers&display=swap');
+        body { font-family: 'Poppins', sans-serif; background: #0f172a; color: white; overflow: hidden; touch-action: none; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+
+        /* LUDO BOARD */
+        .ludo-board {
+            width: 100%; max-width: 400px; aspect-ratio: 1;
+            background: white; border: 4px solid #333;
+            display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(15, 1fr);
+            position: relative;
+        }
+        .cell { border: 1px solid rgba(0,0,0,0.1); position: relative; }
+        .base { grid-row: span 6; grid-column: span 6; display: flex; align-items: center; justify-content: center; border: 4px solid rgba(0,0,0,0.2); }
+        .base-inner { width: 70%; height: 70%; background: white; border-radius: 20%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+        .base-spot { background: rgba(0,0,0,0.1); border-radius: 50%; box-shadow: inset 0 0 5px rgba(0,0,0,0.2); }
+
+        .c-red { background: #ef4444; }
+        .c-green { background: #22c55e; }
+        .c-blue { background: #3b82f6; }
+        .c-yellow { background: #eab308; }
+
+        .path-red { background: #fca5a5; }
+        .path-green { background: #86efac; }
+        .path-blue { background: #93c5fd; }
+        .path-yellow { background: #fde047; }
+
+        .safe { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300000020'%3E%3Cpath d='M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99z'/%3E%3C/svg%3E"); background-size: 80%; background-position: center; background-repeat: no-repeat; }
+
+        .center { grid-column: 7 / span 3; grid-row: 7 / span 3; background: repeating-conic-gradient(#ef4444 0 90deg, #22c55e 90deg 180deg, #eab308 180deg 270deg, #3b82f6 270deg 360deg); }
+
+        /* TOKEN */
+        .token {
+            width: 80%; height: 80%; border-radius: 50%;
+            border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            position: absolute; top: 10%; left: 10%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10; cursor: pointer;
+        }
+        .token.active { animation: bounce 1s infinite; border-color: white; box-shadow: 0 0 10px white; z-index: 20; }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20%); } }
+
+        /* DICE */
+        .dice-container { perspective: 1000px; width: 60px; height: 60px; cursor: pointer; }
+        .dice { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 1s; }
+        .face { position: absolute; width: 60px; height: 60px; background: white; border: 1px solid #ccc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #333; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); }
+        .face:nth-child(1) { transform: rotateY(0deg) translateZ(30px); }
+        .face:nth-child(2) { transform: rotateY(90deg) translateZ(30px); }
+        .face:nth-child(3) { transform: rotateY(180deg) translateZ(30px); }
+        .face:nth-child(4) { transform: rotateY(-90deg) translateZ(30px); }
+        .face:nth-child(5) { transform: rotateX(90deg) translateZ(30px); }
+        .face:nth-child(6) { transform: rotateX(-90deg) translateZ(30px); }
+
+        .rolling { animation: roll 0.5s linear infinite; }
+        @keyframes roll { 0% { transform: rotateX(0) rotateY(0); } 100% { transform: rotateX(360deg) rotateY(360deg); } }
+
+        .hidden { display: none !important; }
+
+        /* AUDIO PLAYER STYLES */
+        #music-widget {
+            position: fixed; bottom: 20px; right: 20px; z-index: 100;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
+            padding: 8px 16px; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            max-width: 90%; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        #music-widget.minimized {
+            width: 50px; height: 50px; padding: 0; border-radius: 50%;
+            justify-content: center; animation: spin 10s linear infinite;
+            border: 2px solid #fbbf24; background: black;
+        }
+        #music-widget.minimized > *:not(.logo-icon) { display: none; }
+        #music-widget .logo-icon { display: none; font-size: 24px; color: #fbbf24; }
+        #music-widget.minimized .logo-icon { display: block; }
+        #music-widget:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.5); opacity: 1 !important; }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .marquee { overflow: hidden; white-space: nowrap; max-width: 150px; font-size: 10px; color: #fbbf24; font-weight: bold; }
+        .visualizer { display: flex; gap: 2px; height: 10px; align-items: flex-end; }
+        .visualizer div { width: 3px; background: #fbbf24; animation: eq 0.5s infinite alternate; }
+        .visualizer div:nth-child(2) { animation-delay: 0.1s; }
+        .visualizer div:nth-child(3) { animation-delay: 0.2s; }
+        @keyframes eq { 0% { height: 2px; } 100% { height: 100%; } }
+
+        /* MODE TOGGLE */
+        .toggle-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+        .toggle-btn.active { background: #eab308; color: black; border-color: #eab308; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center h-screen w-screen bg-[url('https://images.unsplash.com/photo-1605218427306-635ba2439715?q=80&w=1000&auto=format&fit=crop')] bg-cover">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+
+    <!-- HOME SCREEN -->
+    <div id="screen-home" class="relative z-10 text-center w-full max-w-md p-6">
+        <h1 class="text-5xl font-black text-yellow-400 mb-2 drop-shadow-lg" style="font-family: 'Bangers'">LUDO BIRD</h1>
+        <p class="text-slate-300 mb-4">4 Player Multiplayer</p>
+
+        <div class="glass p-6 rounded-2xl mb-4">
+            <!-- NETWORK MODE SELECTOR -->
+            <div class="bg-black/40 p-2 rounded-xl mb-4 flex justify-between items-center">
+                <span class="text-[10px] text-slate-400 font-bold ml-2">NETWORK:</span>
+                <div class="flex gap-1">
+                    <button id="mode-simple" onclick="app.setNetworkMode('simple')" class="toggle-btn">SIMPLE PEER</button>
+                    <button id="mode-peerjs" onclick="app.setNetworkMode('peerjs')" class="toggle-btn active">PEER JS</button>
+                </div>
+            </div>
+
+            <input type="text" id="input-name" placeholder="Nama Kamu" class="w-full bg-slate-800 p-3 rounded-lg text-center font-bold text-white mb-4 outline-none border border-slate-600 focus:border-yellow-400">
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="window.audio.playSfx('click'); app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
+                <button onclick="window.audio.playSfx('click'); app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
+            </div>
+            <div id="join-input-area" class="hidden mt-4">
+                <div id="join-peerjs-input">
+                    <input type="text" id="input-room" placeholder="Kode Room" class="w-full bg-slate-800 p-3 rounded-lg text-center font-mono uppercase text-xl mb-2 border border-slate-600">
+                    <button onclick="window.audio.playSfx('click'); app.joinRoom()" class="w-full bg-yellow-500 text-black py-2 rounded-lg font-bold">MASUK</button>
+                </div>
+                <div id="join-simple-input" class="hidden">
+                    <p class="text-[10px] text-slate-400 mb-2">Manual Signaling Mode</p>
+                    <button onclick="window.audio.playSfx('click'); app.joinRoom()" class="w-full bg-yellow-500 text-black py-3 rounded-lg font-bold">START SIGNALING</button>
+                </div>
+            </div>
+        </div>
+        <button onclick="window.location.href='index.html'" class="text-xs text-slate-500 hover:text-white transition">KEMBALI KE MENU UTAMA</button>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="screen-game" class="relative z-10 w-full h-full hidden flex flex-col">
+        <!-- HEADER -->
+        <div class="p-2 flex justify-between items-center glass shrink-0">
+            <div class="text-xs font-bold text-slate-300">Room: <span id="room-code" class="text-yellow-400 font-mono select-all">...</span></div>
+            <div id="turn-indicator" class="text-xs font-bold px-4 py-1 rounded-full bg-slate-700">Menunggu...</div>
+        </div>
+
+        <!-- BOARD AREA -->
+        <div class="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+            <div class="ludo-board rounded-lg shadow-2xl">
+                <!-- BASES -->
+                <div class="base c-green" style="grid-row: 1/7; grid-column: 1/7;">
+                    <div class="base-inner" id="base-0"></div>
+                </div>
+                <div class="base c-yellow" style="grid-row: 1/7; grid-column: 10/16;">
+                    <div class="base-inner" id="base-1"></div>
+                </div>
+                <div class="base c-red" style="grid-row: 10/16; grid-column: 1/7;">
+                    <div class="base-inner" id="base-3"></div>
+                </div>
+                <div class="base c-blue" style="grid-row: 10/16; grid-column: 10/16;">
+                    <div class="base-inner" id="base-2"></div>
+                </div>
+
+                <!-- CENTER -->
+                <div class="center flex items-center justify-center text-4xl font-black text-white/50" id="center-goal">🏆</div>
+
+                <!-- CELLS GENERATED BY JS -->
+            </div>
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="h-32 glass rounded-t-3xl p-4 flex items-center justify-between shrink-0 relative">
+            <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-green-500"></div> <span id="p0-name" class="text-xs">P1</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div> <span id="p1-name" class="text-xs">P2</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-blue-500"></div> <span id="p2-name" class="text-xs">P3</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-red-500"></div> <span id="p3-name" class="text-xs">P4</span>
+                </div>
+            </div>
+
+            <div class="absolute left-1/2 -translate-x-1/2 -top-10">
+                 <div class="dice-container" onclick="game.rollDice()">
+                     <div id="dice-cube" class="dice">
+                         <div class="face">1</div><div class="face">2</div><div class="face">3</div>
+                         <div class="face">4</div><div class="face">5</div><div class="face">6</div>
+                     </div>
+                 </div>
+            </div>
+
+            <div class="text-center w-24">
+                 <div class="text-[10px] text-slate-400 uppercase font-bold">Dadu</div>
+                 <div id="dice-val" class="text-3xl font-black text-yellow-400">-</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MUSIC WIDGET -->
+    <div id="music-widget" class="animate__animated animate__fadeInUp" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()" onclick="window.audio.resetTimer()">
+        <i class="fa-solid fa-compact-disc logo-icon"></i>
+        <div class="visualizer"><div></div><div></div><div></div></div>
+        <div class="flex flex-col mr-2">
+            <div id="music-title" class="marquee">Memuat Musik...</div>
+            <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
+        </div>
+        <div class="flex gap-1">
+             <button onclick="window.audio.prev()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
+             <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
+             <button onclick="window.audio.next()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
+    </div>
+
+    <!-- VOICE BUTTON (Fixed Bottom Left) -->
+    <button id="btn-mic" onclick="app.toggleVoice()" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
+        <i class="fa-solid fa-microphone-slash"></i>
+    </button>
+    <div id="voice-streams" class="hidden"></div>
+
+    <!-- MUSIC SEARCH MODAL -->
+    <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
+            <button onclick="document.getElementById('modal-music').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cari Lagu</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="music-search-input" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-white border border-slate-700 outline-none" placeholder="Judul lagu / Artis...">
+                <button onclick="window.audio.search()" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+            </div>
+            <div id="music-results" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs"></div>
+        </div>
+    </div>
+
+    <!-- MANUAL SIGNALING MODAL -->
+    <div id="modal-signal" class="fixed inset-0 z-[120] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm flex flex-col relative">
+            <button onclick="document.getElementById('modal-signal').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Manual Signaling</h2>
+
+            <div id="signal-step-1">
+                <p class="text-xs text-slate-300 mb-2">1. Salin kode ini & kirim ke teman:</p>
+                <textarea id="my-signal-data" readonly class="w-full h-24 bg-slate-900 p-2 text-[10px] font-mono rounded border border-slate-700 text-green-400 break-all"></textarea>
+                <button onclick="app.copySignal()" class="w-full mt-2 bg-blue-600 py-2 rounded text-xs font-bold mb-2">SALIN KODE SAYA</button>
+                <button onclick="document.getElementById('signal-step-1').classList.add('hidden'); document.getElementById('signal-step-2').classList.remove('hidden');" class="w-full bg-slate-700 py-2 rounded text-xs font-bold mb-4 text-slate-300 border border-slate-600 hover:bg-slate-600">SAYA SUDAH KIRIM →</button>
+            </div>
+
+            <div id="signal-step-2">
+                <p class="text-xs text-slate-300 mb-2">2. Tempel kode balasan dari teman:</p>
+                <textarea id="other-signal-data" class="w-full h-24 bg-slate-900 p-2 text-[10px] font-mono rounded border border-slate-700 text-white break-all" placeholder="Paste kode teman disini..."></textarea>
+                <button onclick="app.connectSignal()" class="w-full mt-2 bg-green-600 py-2 rounded text-xs font-bold">SAMBUNGKAN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL WIN -->
+    <div id="modal-win" class="fixed inset-0 z-50 bg-black/90 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 p-8 rounded-2xl text-center border border-yellow-500/50">
+            <h2 class="text-3xl font-black text-yellow-400 mb-4">PEMENANG!</h2>
+            <div id="winner-name" class="text-xl text-white mb-6">Player Name</div>
+            <button onclick="location.reload()" class="bg-blue-600 px-6 py-2 rounded-full font-bold">MAIN LAGI</button>
+        </div>
+    </div>
+
+    <script>
+        const PEER_PREFIX = "NGH-LUDO-V1-";
+
+        // AUDIO SYSTEM
+        class AudioManager {
+            constructor() {
+                this.bgm = new Audio(); this.bgm.volume = 0.3; this.bgm.onended = () => this.handleTrackEnd();
+                this.isMuted = false; this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.history = []; this.histIdx = -1;
+                this.timer = null;
+                this.playRandomIndo();
+            }
+            startTimer() { clearTimeout(this.timer); this.timer = setTimeout(() => document.getElementById('music-widget').classList.add('minimized'), 5000); }
+            resetTimer() { clearTimeout(this.timer); document.getElementById('music-widget').classList.remove('minimized'); }
+
+            playSfx(type) {
+                if(this.isMuted) return; const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination);
+                if(type === 'click') { o.type = 'sine'; o.frequency.value = 800; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.1); o.start(); o.stop(this.ctx.currentTime + 0.1); }
+                else if (type === 'dice') { o.type = 'square'; o.frequency.value = 400; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.2); o.start(); o.stop(this.ctx.currentTime + 0.2); }
+                else if (type === 'move') { o.type = 'triangle'; o.frequency.value = 600; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.15); o.start(); o.stop(this.ctx.currentTime + 0.15); }
+                else if (type === 'win') { o.type = 'square'; o.frequency.setValueAtTime(400, this.ctx.currentTime); o.frequency.setValueAtTime(800, this.ctx.currentTime + 0.2); g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5); o.start(); o.stop(this.ctx.currentTime + 0.5); }
+            }
+            playMusic(url, title, artist, addToHist=true) {
+                this.bgm.src = url; this.bgm.play().catch(e => console.log("Autoplay blocked", e));
+                this.updateUI(title, artist); this.startTimer();
+                if(addToHist) {
+                    if(this.history.length === 0 || this.history[this.history.length-1].url !== url) {
+                         this.history.push({url, title, artist});
+                         this.histIdx = this.history.length - 1;
+                    }
+                }
+            }
+            toggleMute() { this.isMuted = !this.isMuted; this.bgm.muted = this.isMuted; document.getElementById('btn-mute').innerHTML = this.isMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>'; document.querySelector('.visualizer').style.opacity = this.isMuted ? 0 : 1; }
+            async playRandomIndo() { const terms = ['Indonesia Pop', 'Lagu Indonesia', 'Indo Hits', 'Dangdut', 'Band Indonesia']; const term = terms[Math.floor(Math.random()*terms.length)]; this.fetchAndPlay(term, true); }
+            async fetchAndPlay(term, random=false) { try { const offset = random ? Math.floor(Math.random() * 50) : 0; const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&limit=1&offset=${offset}&media=music&country=ID`); const data = await res.json(); if(data.results && data.results.length > 0) { const track = data.results[0]; this.syncAndPlay(track.previewUrl, track.trackName, track.artistName); } } catch(e) {} }
+            syncAndPlay(url, title, artist) {
+                if(state.myIndex === 0) app.send({type: 'MUSIC_SYNC', url, title, artist});
+                this.playMusic(url, title, artist);
+            }
+            handleTrackEnd() { if(state.myIndex === 0) this.next(); }
+            next() { if(state.myIndex !== 0) return; if(this.histIdx < this.history.length - 1) { this.histIdx++; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } else { this.playRandomIndo(); } }
+            prev() { if(state.myIndex !== 0) return; if(this.histIdx > 0) { this.histIdx--; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } }
+            openSearch() { document.getElementById('modal-music').classList.remove('hidden'); }
+            async search() { const q = document.getElementById('music-search-input').value; if(!q) return; const list = document.getElementById('music-results'); list.innerHTML = '<div class="text-center animate-pulse">Mencari...</div>'; try { const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=10&media=music&country=ID`); const data = await res.json(); list.innerHTML = ''; data.results.forEach(t => { const div = document.createElement('div'); div.className = "flex justify-between items-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer"; div.innerHTML = `<div class="truncate w-48"><div class="font-bold text-yellow-400">${t.trackName}</div><div class="text-[10px] text-slate-400">${t.artistName}</div></div><button class="text-xs bg-blue-600 px-2 py-1 rounded"><i class="fa-solid fa-play"></i></button>`; div.onclick = () => { if(state.myIndex === 0) { this.syncAndPlay(t.previewUrl, t.trackName, t.artistName); } else { app.sendHost({type: 'REQ_MUSIC', url: t.previewUrl, title: t.trackName, artist: t.artistName}); alert("Request dikirim ke Host"); } document.getElementById('modal-music').classList.add('hidden'); }; list.appendChild(div); }); } catch(e) { list.innerHTML = 'Error.'; } }
+            updateUI(t, a) { document.getElementById('music-title').innerText = t; document.getElementById('music-artist').innerText = a; }
+        }
+
+        // UTILS
+        const utils = {
+            randId: () => Math.floor(1000 + Math.random() * 9000).toString(),
+            sleep: (ms) => new Promise(r => setTimeout(r, ms))
+        };
+
+        // UI
+        const ui = {
+            screen: (id) => {
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.add('hidden');
+                document.getElementById(id).classList.remove('hidden');
+            },
+            showWin: (name) => {
+                document.getElementById('winner-name').innerText = name;
+                document.getElementById('modal-win').classList.remove('hidden');
+                window.audio.playSfx('win');
+            },
+            updateNames: (players) => {
+                players.forEach((p, i) => {
+                    if(p && p.name) document.getElementById(`p${i}-name`).innerText = p.name + (i === state.myIndex ? " (Me)" : "");
+                });
+            },
+            renderDice: (val) => {
+                const d = document.getElementById('dice-cube');
+                const v = document.getElementById('dice-val');
+                d.classList.add('rolling');
+                window.audio.playSfx('dice');
+                setTimeout(() => {
+                    d.classList.remove('rolling');
+                    const rot = {
+                        1: [0, 0], 2: [0, -90], 3: [0, -180],
+                        4: [0, 90], 5: [-90, 0], 6: [90, 0]
+                    }[val] || [0,0];
+                    d.style.transform = `rotateX(${rot[0]}deg) rotateY(${rot[1]}deg)`;
+                    v.innerText = val;
+                }, 800);
+            },
+            renderBoard: () => {
+                const board = document.querySelector('.ludo-board');
+                document.querySelectorAll('.cell').forEach(e => e.remove());
+                const createCell = (r, c, type, id) => { const el = document.createElement('div'); el.className = `cell ${type}`; el.style.gridRow = r; el.style.gridColumn = c; el.dataset.id = id; board.appendChild(el); return el; };
+                for(let i=0; i<6; i++) createCell(7, i+1, i===1?'path-green safe':'', `g-${i}`); for(let i=0; i<6; i++) createCell(8, i+1, i>0?'path-green':'', `gh-${i}`); for(let i=0; i<6; i++) createCell(9, i+1, i===2?'safe':'', `g-${12-i}`);
+                for(let i=0; i<6; i++) createCell(i+1, 9, i===1?'path-yellow safe':'', `y-${i}`); for(let i=0; i<6; i++) createCell(i+1, 8, i>0?'path-yellow':'', `yh-${i}`); for(let i=0; i<6; i++) createCell(i+1, 7, i===2?'safe':'', `y-${12-i}`);
+                for(let i=0; i<6; i++) createCell(9, 15-i, i===1?'path-blue safe':'', `b-${i}`); for(let i=0; i<6; i++) createCell(8, 15-i, i>0?'path-blue':'', `bh-${i}`); for(let i=0; i<6; i++) createCell(7, 15-i, i===2?'safe':'', `b-${12-i}`);
+                for(let i=0; i<6; i++) createCell(15-i, 7, i===1?'path-red safe':'', `r-${i}`); for(let i=0; i<6; i++) createCell(15-i, 8, i>0?'path-red':'', `rh-${i}`); for(let i=0; i<6; i++) createCell(15-i, 9, i===2?'safe':'', `r-${12-i}`);
+            },
+            renderTokens: () => {
+                document.querySelectorAll('.token').forEach(t => t.remove());
+                const colors = ['#22c55e', '#eab308', '#3b82f6', '#ef4444'];
+                state.game.players.forEach((p, pIdx) => {
+                    p.tokens.forEach((pos, tIdx) => {
+                        const el = document.createElement('div');
+                        el.className = `token`;
+                        el.style.backgroundColor = colors[pIdx];
+                        el.onclick = () => game.moveToken(tIdx);
+                        if(state.game.turn === pIdx && state.game.phase === 'move' && state.myIndex === pIdx) {
+                            if(game.canMove(pIdx, tIdx, state.game.diceVal)) el.classList.add('active');
+                        }
+                        if(pos === -1) { const base = document.getElementById(`base-${pIdx}`); if(base) { const spot = document.createElement('div'); spot.className = 'base-spot w-full h-full relative'; spot.appendChild(el); base.appendChild(spot); } }
+                        else if (pos === 99) { const center = document.getElementById('center-goal'); el.style.width='15px'; el.style.height='15px'; el.style.position='relative'; center.appendChild(el); }
+                        else { let cell = getCellForPos(pIdx, pos); if(cell) { if(cell.children.length > 0) { const offset = cell.children.length * 5; el.style.left = (10 + offset) + '%'; el.style.top = (10 + offset) + '%'; } cell.appendChild(el); } }
+                    });
+                });
+            },
+            // MANUAL SIGNALING UI
+            showSignalModal: (data, step) => {
+                document.getElementById('modal-signal').classList.remove('hidden');
+                if(step === 1) {
+                    document.getElementById('signal-step-1').classList.remove('hidden');
+                    document.getElementById('signal-step-2').classList.add('hidden');
+                    document.getElementById('my-signal-data').value = data;
+                } else if(step === 2) {
+                    document.getElementById('signal-step-1').classList.add('hidden');
+                    document.getElementById('signal-step-2').classList.remove('hidden');
+                }
+            }
+        };
+
+        const loopCoords = [ [7,2], [7,3], [7,4], [7,5], [7,6], [6,7], [5,7], [4,7], [3,7], [2,7], [1,7], [1,8], [1,9], [2,9], [3,9], [4,9], [5,9], [6,9], [7,10], [7,11], [7,12], [7,13], [7,14], [7,15], [8,15], [9,15], [9,14], [9,13], [9,12], [9,11], [9,10], [10,9], [11,9], [12,9], [13,9], [14,9], [15,9], [15,8], [15,7], [14,7], [13,7], [12,7], [11,7], [10,7], [9,6], [9,5], [9,4], [9,3], [9,2], [9,1], [8,1], [7,1] ];
+        const homeRunCoords = [ [[8,2], [8,3], [8,4], [8,5], [8,6], [8,7]], [[2,8], [3,8], [4,8], [5,8], [6,8], [7,8]], [[8,14], [8,13], [8,12], [8,11], [8,10], [8,9]], [[14,8], [13,8], [12,8], [11,8], [10,8], [9,8]] ];
+        function getCellForPos(pIdx, localPos) { if(localPos < 52) { const offset = pIdx * 13; const globalPos = (localPos + offset) % 52; const c = loopCoords[globalPos]; return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`); } else { const hrIdx = localPos - 52; if(hrIdx < 6) { const c = homeRunCoords[pIdx][hrIdx]; return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`); } return null; } }
+
+        const state = { myIndex: -1, roomCode: '', networkMode: 'peerjs', game: { players: [ { name: 'P1', tokens: [-1,-1,-1,-1], baseColor: 'green' }, { name: 'P2', tokens: [-1,-1,-1,-1], baseColor: 'yellow' }, { name: 'P3', tokens: [-1,-1,-1,-1], baseColor: 'blue' }, { name: 'P4', tokens: [-1,-1,-1,-1], baseColor: 'red' } ], turn: 0, diceVal: 0, phase: 'roll', winners: [] } };
+
+        const game = {
+            init: () => { ui.renderBoard(); ui.renderTokens(); },
+            rollDice: () => { if(state.game.turn !== state.myIndex) return; if(state.game.phase !== 'roll') return; const val = Math.floor(Math.random() * 6) + 1; app.send({ type: 'ROLL', val }); },
+            handleRoll: (val) => { state.game.diceVal = val; ui.renderDice(val); if(game.hasValidMoves(state.game.turn, val)) { state.game.phase = 'move'; } else { setTimeout(game.nextTurn, 1500); } ui.renderTokens(); app.updateStatus(); },
+            hasValidMoves: (pIdx, roll) => { return state.game.players[pIdx].tokens.some((t, i) => game.canMove(pIdx, i, roll)); },
+            canMove: (pIdx, tIdx, roll) => { const pos = state.game.players[pIdx].tokens[tIdx]; if(pos === 99) return false; if(pos === -1) return roll === 6; if(pos + roll > 57) return false; return true; },
+            moveToken: (tIdx) => { if(state.game.turn !== state.myIndex) return; if(state.game.phase !== 'move') return; if(!game.canMove(state.game.turn, tIdx, state.game.diceVal)) return; app.send({ type: 'MOVE', tIdx }); },
+            handleMove: (pIdx, tIdx) => {
+                const p = state.game.players[pIdx]; const roll = state.game.diceVal; let cur = p.tokens[tIdx];
+                if(cur === -1) { p.tokens[tIdx] = 0; } else { p.tokens[tIdx] += roll; if(p.tokens[tIdx] === 57) p.tokens[tIdx] = 99; }
+                if(p.tokens[tIdx] < 52 && p.tokens[tIdx] !== -1) { const myGlobal = (p.tokens[tIdx] + pIdx * 13) % 52; const isSafe = [0,8,13,21,26,34,39,47].includes(myGlobal); if(!isSafe) { state.game.players.forEach((opp, oIdx) => { if(pIdx !== oIdx) { opp.tokens.forEach((ot, otIdx) => { if(ot !== -1 && ot < 52) { const oppGlobal = (ot + oIdx * 13) % 52; if(myGlobal === oppGlobal) { opp.tokens[otIdx] = -1; window.audio.playSfx('win'); } } }); } }); } }
+                window.audio.playSfx('move'); ui.renderTokens(); if(p.tokens.every(t => t === 99)) { state.game.winners.push(p.name); ui.showWin(p.name); }
+                if(roll === 6) { state.game.phase = 'roll'; app.updateStatus("Main Lagi!"); } else { game.nextTurn(); }
+            },
+            nextTurn: () => { state.game.turn = (state.game.turn + 1) % 4; state.game.phase = 'roll'; state.game.diceVal = 0; ui.renderTokens(); app.updateStatus(); }
+        };
+
+        // --- NETWORK MANAGER ---
+        let peerInstance = null;
+        let connections = {}; // For PeerJS Host
+        let simplePeer = null;
+
+        const app = {
+            init: () => {
+                const url = new URL(window.location.href);
+                const name = url.searchParams.get('name');
+                if(name) document.getElementById('input-name').value = name;
+            },
+            setNetworkMode: (mode) => {
+                state.networkMode = mode;
+                document.getElementById('mode-simple').classList.toggle('active', mode === 'simple');
+                document.getElementById('mode-peerjs').classList.toggle('active', mode === 'peerjs');
+                if(mode === 'peerjs') {
+                    document.getElementById('join-peerjs-input').classList.remove('hidden');
+                    document.getElementById('join-simple-input').classList.add('hidden');
+                } else {
+                    document.getElementById('join-peerjs-input').classList.add('hidden');
+                    document.getElementById('join-simple-input').classList.remove('hidden');
+                }
+            },
+            createRoom: () => {
+                const name = document.getElementById('input-name').value || "Host";
+                state.myIndex = 0;
+                state.game.players[0].name = name;
+                if(state.networkMode === 'peerjs') {
+                    initPeerJS(PEER_PREFIX + utils.randId());
+                } else {
+                    initSimplePeerHost();
+                }
+            },
+            joinRoomPrompt: () => { document.getElementById('join-input-area').classList.remove('hidden'); app.setNetworkMode(state.networkMode); },
+            joinRoom: () => {
+                const name = document.getElementById('input-name').value || "Guest";
+                if(state.networkMode === 'peerjs') {
+                    const code = document.getElementById('input-room').value.toUpperCase();
+                    initPeerJS(null, code);
+                } else {
+                    initSimplePeerGuest();
+                }
+            },
+            send: (data) => {
+                if(state.myIndex === 0) {
+                    app.handleData(data, {peer: 'me'}); // Host process
+                    if(state.networkMode === 'peerjs') { Object.values(connections).forEach(c => c.send(data)); }
+                    else if(simplePeer && simplePeer.connected) { simplePeer.send(JSON.stringify(data)); }
+                } else {
+                    app.sendHost(data);
+                }
+            },
+            sendHost: (data) => {
+                if(state.networkMode === 'peerjs') { if(connections['host']) connections['host'].send(data); }
+                else if(simplePeer && simplePeer.connected) { simplePeer.send(JSON.stringify(data)); }
+            },
+            handleData: (d, conn) => {
+                // Host Logic
+                if(state.myIndex === 0) {
+                    if(d.type === 'JOIN') {
+                        let idx = state.game.players.findIndex((p, i) => i>0 && (p.name === 'P'+(i+1) || p.peerId === undefined));
+                        if(idx !== -1) {
+                            state.game.players[idx].name = d.name;
+                            state.game.players[idx].peerId = conn.peer || 'guest';
+                            const update = { type: 'STATE', game: state.game, myIdx: idx };
+
+                            // Send to specific new player
+                            if(state.networkMode === 'peerjs') conn.send(update);
+                            else if(simplePeer) simplePeer.send(JSON.stringify(update));
+
+                            // Broadcast
+                            const broadcastUpdate = { type: 'STATE', game: state.game };
+                            if(state.networkMode === 'peerjs') Object.values(connections).forEach(c => { if(c.peer !== conn.peer) c.send(broadcastUpdate); });
+                            // Simple peer only supports 1 guest in this simple implementation for Ludo?
+                            // Standard Ludo needs 4. SimplePeer is 1-to-1.
+                            // To support 4 players with SimplePeer manually is NIGHTMARE (Mesh).
+                            // For this task, "Default Simple Peer" probably implies 2 player or just demonstration.
+                            // I will assume for Ludo Simple Peer = 2 Players (Host + Guest) strictly for simplicity or just broadcast to the one connected channel.
+                            // *Limitation:* SimplePeer manual signaling only connects 2 people easily.
+
+                            ui.updateNames(state.game.players);
+                        }
+                    } else if (d.type === 'ROLL') { game.handleRoll(d.val); app.broadcastGame(); }
+                    else if (d.type === 'MOVE') { game.handleMove(state.game.turn, d.tIdx); app.broadcastGame(); }
+                    else if (d.type === 'REQ_MUSIC') { app.send({type: 'MUSIC_SYNC', url: d.url, title: d.title, artist: d.artist}); window.audio.playMusic(d.url, d.title, d.artist); }
+                }
+                // Client Logic
+                else {
+                    if(d.type === 'STATE') { state.game = d.game; if(d.myIdx !== undefined) state.myIndex = d.myIdx; ui.screen('screen-game'); game.init(); ui.updateNames(state.game.players); }
+                    else if (d.type === 'UPDATE_GAME') { const oldDice = state.game.diceVal; state.game = d.game; if(state.game.diceVal !== oldDice && state.game.diceVal > 0) ui.renderDice(state.game.diceVal); ui.renderTokens(); ui.updateNames(state.game.players); app.updateStatus(); }
+                    else if (d.type === 'MUSIC_SYNC') { window.audio.playMusic(d.url, d.title, d.artist); }
+                }
+            },
+            broadcastGame: () => {
+                const d = { type: 'UPDATE_GAME', game: state.game };
+                if(state.networkMode === 'peerjs') Object.values(connections).forEach(c => c.send(d));
+                else if(simplePeer && simplePeer.connected) simplePeer.send(JSON.stringify(d));
+            },
+            updateStatus: () => {
+                const turnName = state.game.players[state.game.turn].name;
+                const isMe = state.game.turn === state.myIndex;
+                const phase = state.game.phase === 'roll' ? 'Mengocok Dadu' : 'Jalan';
+                document.getElementById('turn-indicator').innerText = isMe ? `Giliran Kamu (${phase})` : `${turnName} (${phase})`;
+                document.getElementById('turn-indicator').className = `text-xs font-bold px-4 py-1 rounded-full ${isMe ? 'bg-green-600 animate-pulse' : 'bg-slate-700'}`;
+            },
+            // MANUAL SIGNALING HELPERS
+            copySignal: () => { const el = document.getElementById('my-signal-data'); el.select(); document.execCommand('copy'); alert("Kode disalin!"); },
+            connectSignal: () => {
+                const data = document.getElementById('other-signal-data').value;
+                if(!data) return;
+                try { const signal = JSON.parse(data); simplePeer.signal(signal); document.getElementById('modal-signal').classList.add('hidden'); } catch(e) { alert("Kode tidak valid."); }
+            },
+            toggleVoice: async () => {
+                const btn = document.getElementById('btn-mic');
+                const isAct = btn.classList.contains('text-red-500');
+                if(isAct) {
+                    if(window.myStream) window.myStream.getTracks().forEach(t => t.stop());
+                    window.myStream = null;
+                    btn.classList.remove('text-red-500', 'border-red-500');
+                    btn.classList.add('text-slate-400');
+                    btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+                } else {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+                        window.myStream = stream;
+                        btn.classList.add('text-red-500', 'border-red-500');
+                        btn.classList.remove('text-slate-400');
+                        btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+
+                        if(state.networkMode === 'peerjs' && peerInstance) {
+                             if(state.myIndex === 0) {
+                                 Object.values(connections).forEach(c => peerInstance.call(c.peer, stream));
+                             } else if(peerInstance.conn) {
+                                 peerInstance.call(peerInstance.conn.peer, stream);
+                             }
+                        }
+                    } catch(e) { alert("Gagal akses mic: " + e); }
+                }
+            },
+            addAudioStream: (stream) => {
+                const a = document.createElement('audio');
+                a.srcObject = stream;
+                a.play().catch(e=>console.log(e));
+                document.getElementById('voice-streams').appendChild(a);
+            }
+        };
+
+        // --- NETWORK IMPL ---
+        const initPeerJS = (id, targetId) => {
+            const peer = new Peer(id, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+            peerInstance = peer;
+
+            peer.on('call', (call) => {
+                call.answer();
+                call.on('stream', (remoteStream) => {
+                    app.addAudioStream(remoteStream);
+                });
+            });
+
+            peer.on('open', (pid) => {
+                if(state.myIndex === 0) { // Host
+                    state.roomCode = pid.replace(PEER_PREFIX, '');
+                    document.getElementById('room-code').innerText = state.roomCode;
+                    document.getElementById('btn-mic').classList.remove('hidden');
+                    state.game.players[0].peerId = pid; // Sync Host ID
+                    ui.screen('screen-game');
+                    ui.updateNames(state.game.players);
+                    game.init();
+                } else { // Join
+                    const conn = peer.connect(PEER_PREFIX + targetId);
+                    peer.conn = conn;
+                    conn.on('open', () => {
+                        document.getElementById('btn-mic').classList.remove('hidden');
+                        conn.send({ type: 'JOIN', name: document.getElementById('input-name').value });
+                        state.roomCode = targetId;
+                        document.getElementById('room-code').innerText = targetId;
+                    });
+                    conn.on('data', (d) => app.handleData(d, conn));
+                    connections['host'] = conn;
+                }
+            });
+            peer.on('connection', (c) => {
+                c.on('data', (d) => app.handleData(d, c));
+                c.on('open', () => {
+                    connections[c.peer] = c;
+                    if(window.myStream) peer.call(c.peer, window.myStream);
+                });
+            });
+        };
+
+        const initSimplePeerHost = () => {
+            simplePeer = new SimplePeer({ initiator: true, trickle: false });
+            setupSimplePeerEvents(simplePeer, true);
+        };
+        const initSimplePeerGuest = () => {
+            simplePeer = new SimplePeer({ initiator: false, trickle: false });
+            setupSimplePeerEvents(simplePeer, false);
+            ui.showSignalModal("", 2);
+        };
+        const setupSimplePeerEvents = (p, isHost) => {
+            p.on('error', err => alert("P2P Error: " + err));
+            p.on('signal', data => { ui.showSignalModal(JSON.stringify(data), 1); });
+            p.on('connect', () => {
+                document.getElementById('modal-signal').classList.add('hidden');
+                if(isHost) {
+                    ui.screen('screen-game');
+                    ui.updateNames(state.game.players);
+                    game.init();
+                } else {
+                    p.send(JSON.stringify({ type: 'JOIN', name: document.getElementById('input-name').value }));
+                }
+            });
+            p.on('data', data => {
+                const d = JSON.parse(data.toString());
+                if(isHost) app.handleData(d, {});
+                else app.handleData(d, {});
+            });
+        };
+
+        window.audio = new AudioManager();
+        app.init();
+        game.init();
+
+    </script>
+</body>
+</html>
