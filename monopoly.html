@@ -178,15 +178,15 @@
             <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
         </div>
         <div class="flex gap-1">
-             <button onclick="window.audio.prev()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
-             <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
-             <button onclick="window.audio.next()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
+             <button onclick="window.audio.prev()" aria-label="Previous Track" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
+             <button onclick="window.audio.toggleMute()" aria-label="Toggle Mute" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
+             <button onclick="window.audio.next()" aria-label="Next Track" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
         </div>
-        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
+        <button onclick="window.audio.openSearch()" aria-label="Search Music" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
     </div>
 
     <!-- VOICE BUTTON -->
-    <button id="btn-mic" onclick="app.toggleVoice()" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
+    <button id="btn-mic" onclick="app.toggleVoice()" aria-label="Toggle Voice" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
         <i class="fa-solid fa-microphone-slash"></i>
     </button>
     <div id="voice-streams" class="hidden"></div>
@@ -194,11 +194,11 @@
     <!-- MUSIC SEARCH MODAL -->
     <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
         <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
-            <button onclick="document.getElementById('modal-music').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <button onclick="document.getElementById('modal-music').classList.add('hidden')" aria-label="Close" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
             <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cari Lagu</h2>
             <div class="flex gap-2 mb-4">
                 <input type="text" id="music-search-input" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-white border border-slate-700 outline-none" placeholder="Judul lagu / Artis...">
-                <button onclick="window.audio.search()" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+                <button onclick="window.audio.search()" aria-label="Search" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
             </div>
             <div id="music-results" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs"></div>
         </div>
@@ -207,7 +207,7 @@
     <!-- MANUAL SIGNALING MODAL -->
     <div id="modal-signal" class="fixed inset-0 z-[120] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
         <div class="glass p-6 rounded-3xl w-full max-w-sm flex flex-col relative">
-            <button onclick="document.getElementById('modal-signal').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <button onclick="document.getElementById('modal-signal').classList.add('hidden')" aria-label="Close" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
             <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Manual Signaling</h2>
             <div id="signal-step-1">
                 <p class="text-xs text-slate-300 mb-2">1. Salin kode ini & kirim ke teman:</p>

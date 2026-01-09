@@ -171,8 +171,8 @@
             </div>
 
             <div class="mb-4 flex gap-2 bg-black/40 p-1 rounded-xl">
-                <input type="text" id="input-name" placeholder="Nickname" class="flex-1 p-3 rounded-lg bg-transparent text-white text-center font-bold outline-none placeholder:text-slate-500 min-w-0">
-                <button onclick="window.utils.randomName(); window.audio.playSfx('click')" class="bg-white/10 px-4 rounded-lg text-yellow-400 hover:bg-white/20 transition"><i class="fa-solid fa-dice"></i></button>
+                <input type="text" id="input-name" placeholder="Nickname" aria-label="Nickname" class="flex-1 p-3 rounded-lg bg-transparent text-white text-center font-bold outline-none placeholder:text-slate-500 min-w-0">
+                <button onclick="window.utils.randomName(); window.audio.playSfx('click')" aria-label="Randomize Name" class="bg-white/10 px-4 rounded-lg text-yellow-400 hover:bg-white/20 transition"><i class="fa-solid fa-dice"></i></button>
             </div>
             
             <div class="grid grid-cols-2 gap-3 mb-4">
@@ -205,7 +205,7 @@
     <!-- MANUAL SIGNALING MODAL -->
     <div id="modal-signal" class="fixed inset-0 z-[120] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
         <div class="glass p-6 rounded-3xl w-full max-w-sm flex flex-col relative">
-            <button onclick="document.getElementById('modal-signal').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <button onclick="document.getElementById('modal-signal').classList.add('hidden')" aria-label="Close" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
             <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Manual Signaling</h2>
 
             <div id="signal-step-1">
@@ -233,15 +233,15 @@
             <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
         </div>
         <div class="flex gap-1">
-             <button onclick="window.audio.prev()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
-             <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
-             <button onclick="window.audio.next()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
+             <button onclick="window.audio.prev()" aria-label="Previous Track" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
+             <button onclick="window.audio.toggleMute()" aria-label="Toggle Mute" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
+             <button onclick="window.audio.next()" aria-label="Next Track" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
         </div>
-        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
+        <button onclick="window.audio.openSearch()" aria-label="Search Music" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
     </div>
 
     <!-- VOICE BUTTON (Fixed Bottom Left) -->
-    <button id="btn-mic" onclick="window.app.toggleVoice()" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
+    <button id="btn-mic" onclick="window.app.toggleVoice()" aria-label="Toggle Voice" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
         <i class="fa-solid fa-microphone-slash"></i>
     </button>
 
@@ -251,11 +251,11 @@
     <!-- MUSIC SEARCH MODAL -->
     <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
         <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
-            <button onclick="document.getElementById('modal-music').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <button onclick="document.getElementById('modal-music').classList.add('hidden')" aria-label="Close" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
             <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cari Lagu</h2>
             <div class="flex gap-2 mb-4">
                 <input type="text" id="music-search-input" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-white border border-slate-700 outline-none" placeholder="Judul lagu / Artis...">
-                <button onclick="window.audio.search()" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+                <button onclick="window.audio.search()" aria-label="Search" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
             </div>
             <div id="music-results" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs"></div>
         </div>
@@ -264,7 +264,7 @@
     <!-- HISTORY MODAL -->
     <div id="modal-history" class="fixed inset-0 z-[100] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
         <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
-            <button onclick="document.getElementById('modal-history').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <button onclick="document.getElementById('modal-history').classList.add('hidden')" aria-label="Close" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
             <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Riwayat Update</h2>
             <div class="scroll-y flex-1 pr-2">
                 <div class="timeline-container">
@@ -395,7 +395,7 @@
             <div class="absolute left-1/2 -translate-x-1/2 top-3">
                  <div id="turn-indicator" class="text-[10px] font-bold bg-black/50 px-4 py-1 rounded-full border border-white/10 backdrop-blur-md shadow-xl whitespace-nowrap">Menunggu...</div>
             </div>
-            <button onclick="window.chat.toggle()" class="w-9 h-9 rounded-full bg-slate-700/50 active:bg-slate-600 relative transition border border-white/10 flex items-center justify-center">
+            <button onclick="window.chat.toggle()" aria-label="Toggle Chat" class="w-9 h-9 rounded-full bg-slate-700/50 active:bg-slate-600 relative transition border border-white/10 flex items-center justify-center">
                 <i class="fa-solid fa-comment-dots text-xs"></i>
                 <div id="chat-badge" class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-slate-800 hidden animate-bounce"></div>
             </button>
@@ -437,8 +437,8 @@
                     </div>
                     <div id="chess-status" class="mt-6 text-white font-bold text-xs bg-gradient-to-r from-slate-900 to-slate-800 px-6 py-2 rounded-full border border-white/10 shadow-lg tracking-wide text-center">Menunggu...</div>
                     <div id="spectator-controls" class="mt-4 hidden gap-4">
-                        <button onclick="window.game.chess.prevBoard()" class="bg-blue-600 w-10 h-10 rounded-full text-white active:bg-blue-700 shadow-lg"><i class="fa-solid fa-chevron-left"></i></button>
-                        <button onclick="window.game.chess.nextBoard()" class="bg-blue-600 w-10 h-10 rounded-full text-white active:bg-blue-700 shadow-lg"><i class="fa-solid fa-chevron-right"></i></button>
+                        <button onclick="window.game.chess.prevBoard()" aria-label="Previous Board" class="bg-blue-600 w-10 h-10 rounded-full text-white active:bg-blue-700 shadow-lg"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button onclick="window.game.chess.nextBoard()" aria-label="Next Board" class="bg-blue-600 w-10 h-10 rounded-full text-white active:bg-blue-700 shadow-lg"><i class="fa-solid fa-chevron-right"></i></button>
                     </div>
                 </div>
             </div>
@@ -449,12 +449,12 @@
     <div id="chat-overlay" class="fixed inset-y-0 right-0 w-full sm:w-80 glass-dark transform translate-x-full transition-transform duration-300 z-[60] flex flex-col border-l border-white/10 shadow-2xl pb-safe">
         <div class="p-4 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
             <h3 class="font-bold text-sm text-yellow-400 flex items-center gap-2"><i class="fa-regular fa-comments"></i> Chat</h3>
-            <button onclick="window.chat.toggle()" class="w-8 h-8 rounded-full bg-white/5 active:bg-red-500/20 active:text-red-400 transition flex items-center justify-center">✕</button>
+            <button onclick="window.chat.toggle()" aria-label="Close Chat" class="w-8 h-8 rounded-full bg-white/5 active:bg-red-500/20 active:text-red-400 transition flex items-center justify-center">✕</button>
         </div>
         <div id="chat-logs" class="flex-1 overflow-y-auto p-4 text-xs space-y-3 overscroll-contain"></div>
         <form onsubmit="window.chat.send(event)" class="p-3 border-t border-white/10 flex gap-2 bg-slate-900/80 pb-6 sm:pb-3">
             <input type="text" id="chat-input" class="flex-1 bg-slate-800 rounded-lg px-4 py-3 text-xs text-white border border-slate-700 outline-none focus:border-blue-500 transition" placeholder="Ketik pesan...">
-            <button class="bg-blue-600 w-10 rounded-lg text-xs active:bg-blue-700 transition shadow-lg"><i class="fa-solid fa-paper-plane"></i></button>
+            <button aria-label="Send Message" class="bg-blue-600 w-10 rounded-lg text-xs active:bg-blue-700 transition shadow-lg"><i class="fa-solid fa-paper-plane"></i></button>
         </form>
     </div>
 
