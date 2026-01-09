@@ -950,8 +950,10 @@
                         let ok=(c.color==='black'||c.color===(s.currentColor||top.color)||c.val===top.val);
                         if(s.stackCount>0) ok=(c.val.includes('+')&&parseInt(c.val.replace('+',''))>=parseInt(top.val.replace('+','')));
                         if(ok) {
-                            window.audio.playSfx('card'); if(s.hands[pid].length===2&&!s.unoCalled[pid]) for(let i=0;i<2;i++) if(s.drawPile.length) s.hands[pid].push(s.drawPile.pop());
-                            s.hands[pid]=s.hands[pid].filter(x=>x!==pay.cid); s.discardPile.push(pay.cid); s.currentColor=(c.color==='black')?pay.col:null; s.unoCalled[pid]=false;
+                            window.audio.playSfx('card');
+                            s.hands[pid]=s.hands[pid].filter(x=>x!==pay.cid);
+                            if(s.hands[pid].length===1&&!s.unoCalled[pid]) { for(let i=0;i<2;i++) if(s.drawPile.length) s.hands[pid].push(s.drawPile.pop()); window.utils.alert("LUPA UNO!", "Kena hukuman +2 kartu"); }
+                            s.discardPile.push(pay.cid); s.currentColor=(c.color==='black')?pay.col:null; s.unoCalled[pid]=false;
                             if(c.type.includes('draw') || c.val.includes('+')) { const val = parseInt(c.val.replace('+','')); if(!isNaN(val)) s.stackCount += val; }
                             if(c.type==='flip') { s.currentSide=s.currentSide==='light'?'dark':'light'; }
                             let sk=0; if(c.type==='skip') sk=1; if(c.type==='skip_all') sk = pList.length - 1; if(c.type==='reverse') { if(pList.length===2) sk=1; else s.direction*=-1; }
