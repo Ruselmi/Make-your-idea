@@ -9,11 +9,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="stylesheet" href="css/style.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Bangers&display=swap');
-        body { font-family: 'Poppins', sans-serif; background: #0f172a; color: white; overflow: hidden; touch-action: none; }
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-
         /* MONOPOLY BOARD - HD */
         .board-container {
             width: 100%; max-width: 650px; aspect-ratio: 1;
@@ -66,39 +63,18 @@
         .token-2 { background: radial-gradient(circle at 30% 30%, #86efac, #16a34a); } /* Green */
         .token-3 { background: radial-gradient(circle at 30% 30%, #fef08a, #ca8a04); } /* Yellow */
 
-        /* UTILS */
-        .hidden { display: none !important; }
         .active-turn { box-shadow: 0 0 15px #fbbf24; border-color: #fbbf24; }
 
-        /* AUDIO PLAYER STYLES */
-        #music-widget {
-            position: fixed; bottom: 20px; right: 20px; z-index: 100;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
-            padding: 8px 16px; display: flex; align-items: center; gap: 10px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            max-width: 90%; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
+        /* ACTION LOG */
+        #game-log {
+            position: absolute; top: 18%; left: 50%; transform: translateX(-50%);
+            width: 60%; height: 20%; background: rgba(0,0,0,0.5);
+            border-radius: 8px; padding: 5px; overflow-y: auto;
+            font-size: 8px; color: white; text-align: left;
+            border: 1px solid rgba(255,255,255,0.2);
+            pointer-events: none;
         }
-        #music-widget.minimized {
-            width: 50px; height: 50px; padding: 0; border-radius: 50%;
-            justify-content: center; animation: spin 10s linear infinite;
-            border: 2px solid #fbbf24; background: black;
-        }
-        #music-widget.minimized > *:not(.logo-icon) { display: none; }
-        #music-widget .logo-icon { display: none; font-size: 24px; color: #fbbf24; }
-        #music-widget.minimized .logo-icon { display: block; }
-        #music-widget:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.5); opacity: 1 !important; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .marquee { overflow: hidden; white-space: nowrap; max-width: 150px; font-size: 10px; color: #fbbf24; font-weight: bold; }
-        .visualizer { display: flex; gap: 2px; height: 10px; align-items: flex-end; }
-        .visualizer div { width: 3px; background: #fbbf24; animation: eq 0.5s infinite alternate; }
-        .visualizer div:nth-child(2) { animation-delay: 0.1s; }
-        .visualizer div:nth-child(3) { animation-delay: 0.2s; }
-        @keyframes eq { 0% { height: 2px; } 100% { height: 100%; } }
-
-        .toggle-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
-        .toggle-btn.active { background: #eab308; color: black; border-color: #eab308; }
+        .log-entry { margin-bottom: 2px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1px; }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen bg-[url('https://images.unsplash.com/photo-1614294148960-9aa740632a87?q=80&w=1000&auto=format&fit=crop')] bg-cover">
@@ -223,10 +199,11 @@
         </div>
     </div>
 
+    <script src="js/utils.js"></script>
     <script>
         const PEER_PREFIX = "NGH-MONO-V1-";
 
-        // BOARD DATA
+        // BOARD DATA (Kept same)
         const SPACES = [
             { name: "GO", type: "go" },
             { name: "Mediteran", type: "prop", price: 60, color: "brown", rent: 2 },
@@ -272,52 +249,18 @@
 
         const COLORS = { brown: '#92400e', lightblue: '#bae6fd', pink: '#f9a8d4', orange: '#fb923c', red: '#ef4444', yellow: '#fde047', green: '#22c55e', blue: '#3b82f6' };
 
+        // FIXED GAME STATE
         const state = {
             myIndex: -1, roomCode: '', networkMode: 'peerjs',
-            game: { players: [], turn: 0, active: false }
+            game: {
+                turn: 0,
+                players: [],
+                board: [], // Array[40] logic placeholder
+                active: false
+            }
         };
 
-        // AUDIO SYSTEM (Standard)
-        class AudioManager {
-            constructor() {
-                this.bgm = new Audio(); this.bgm.volume = 0.3; this.bgm.onended = () => this.handleTrackEnd();
-                this.isMuted = false; this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                this.history = []; this.histIdx = -1; this.timer = null;
-                this.playRandomIndo();
-            }
-            startTimer() { clearTimeout(this.timer); this.timer = setTimeout(() => document.getElementById('music-widget').classList.add('minimized'), 5000); }
-            resetTimer() { clearTimeout(this.timer); document.getElementById('music-widget').classList.remove('minimized'); }
-            playSfx(type) {
-                if(this.isMuted) return; const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination);
-                if(type === 'click') { o.type = 'sine'; o.frequency.value = 800; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.1); o.start(); o.stop(this.ctx.currentTime + 0.1); }
-            }
-            playMusic(url, title, artist, addToHist=true) {
-                this.bgm.src = url; this.bgm.play().catch(e => console.log("Autoplay blocked", e));
-                this.updateUI(title, artist); this.startTimer();
-                if(addToHist) {
-                    if(this.history.length === 0 || this.history[this.history.length-1].url !== url) {
-                         this.history.push({url, title, artist});
-                         this.histIdx = this.history.length - 1;
-                    }
-                }
-            }
-            toggleMute() { this.isMuted = !this.isMuted; this.bgm.muted = this.isMuted; document.getElementById('btn-mute').innerHTML = this.isMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>'; document.querySelector('.visualizer').style.opacity = this.isMuted ? 0 : 1; }
-            async playRandomIndo() { const terms = ['Indonesia Pop', 'Lagu Indonesia']; const term = terms[Math.floor(Math.random()*terms.length)]; this.fetchAndPlay(term, true); }
-            async fetchAndPlay(term, random=false) { try { const offset = random ? Math.floor(Math.random() * 50) : 0; const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&limit=1&offset=${offset}&media=music&country=ID`); const data = await res.json(); if(data.results && data.results.length > 0) { const track = data.results[0]; this.syncAndPlay(track.previewUrl, track.trackName, track.artistName); } } catch(e) {} }
-            syncAndPlay(url, title, artist) { if(state.myIndex === 0) app.send({type: 'MUSIC_SYNC', url, title, artist}); this.playMusic(url, title, artist); }
-            handleTrackEnd() { if(state.myIndex === 0) this.next(); }
-            next() { if(state.myIndex !== 0) return; if(this.histIdx < this.history.length - 1) { this.histIdx++; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } else { this.playRandomIndo(); } }
-            prev() { if(state.myIndex !== 0) return; if(this.histIdx > 0) { this.histIdx--; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } }
-            openSearch() { document.getElementById('modal-music').classList.remove('hidden'); }
-            async search() { const q = document.getElementById('music-search-input').value; if(!q) return; const list = document.getElementById('music-results'); list.innerHTML = '<div class="text-center animate-pulse">Mencari...</div>'; try { const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=10&media=music&country=ID`); const data = await res.json(); list.innerHTML = ''; data.results.forEach(t => { const div = document.createElement('div'); div.className = "flex justify-between items-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer"; div.innerHTML = `<div class="truncate w-48"><div class="font-bold text-yellow-400">${t.trackName}</div><div class="text-[10px] text-slate-400">${t.artistName}</div></div><button class="text-xs bg-blue-600 px-2 py-1 rounded"><i class="fa-solid fa-play"></i></button>`; div.onclick = () => { if(state.myIndex === 0) { this.syncAndPlay(t.previewUrl, t.trackName, t.artistName); } else { app.sendHost({type: 'REQ_MUSIC', url: t.previewUrl, title: t.trackName, artist: t.artistName}); alert("Request dikirim ke Host"); } document.getElementById('modal-music').classList.add('hidden'); }; list.appendChild(div); }); } catch(e) { list.innerHTML = 'Error.'; } }
-            updateUI(t, a) { document.getElementById('music-title').innerText = t; document.getElementById('music-artist').innerText = a; }
-        }
-
-        const utils = {
-            randId: () => Math.floor(1000 + Math.random() * 9000).toString(),
-            sleep: (ms) => new Promise(r => setTimeout(r, ms))
-        };
-
+        // UI
         const ui = {
             initBoard: () => {
                 const b = document.getElementById('board');
@@ -580,9 +523,9 @@
             addAudioStream: (s) => { const a=document.createElement('audio'); a.srcObject=s; a.play(); document.getElementById('voice-streams').appendChild(a); }
         };
 
-        // NETWORK IMPL (Simplified copies of Ludo)
+        // NETWORK IMPL (FIXED PEER CONFIG)
         const initPeerJS = (id, targetId) => {
-            const peer = new Peer(id, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+            const peer = new Peer(id, { config: SHARED_CONFIG });
             peerInstance = peer;
             peer.on('call', c => { c.answer(); c.on('stream', s => app.addAudioStream(s)); });
             peer.on('open', pid => {

@@ -9,12 +9,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="stylesheet" href="css/style.css">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Bangers&display=swap');
-        body { font-family: 'Poppins', sans-serif; background: #0f172a; color: white; overflow: hidden; touch-action: none; }
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
-
-        /* LUDO BOARD - HD STYLE */
+        /* LUDO SPECIFIC STYLES */
         .ludo-board {
             width: 100%; max-width: 450px; aspect-ratio: 1;
             background: #e2e8f0; border: 8px solid #1e293b;
@@ -24,80 +21,28 @@
             position: relative;
             overflow: hidden;
         }
-        .cell {
-            border: 0.5px solid rgba(0,0,0,0.05);
-            position: relative;
-            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.05);
-        }
-        .base {
-            grid-row: span 6; grid-column: span 6;
-            display: flex; align-items: center; justify-content: center;
-            /* border: 4px solid rgba(0,0,0,0.1); */
-        }
-        .base-inner {
-            width: 75%; height: 75%;
-            background: white;
-            border-radius: 24px;
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px;
-            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.1);
-        }
-        .base-spot {
-            background: rgba(0,0,0,0.05);
-            border-radius: 50%;
-            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.15);
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-
-        /* HD COLORS */
+        .cell { border: 0.5px solid rgba(0,0,0,0.05); position: relative; box-shadow: inset 1px 1px 3px rgba(0,0,0,0.05); }
+        .base { grid-row: span 6; grid-column: span 6; display: flex; align-items: center; justify-content: center; }
+        .base-inner { width: 75%; height: 75%; background: white; border-radius: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2), 0 5px 10px rgba(0,0,0,0.1); }
+        .base-spot { background: rgba(0,0,0,0.05); border-radius: 50%; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.05); }
         .c-red { background: linear-gradient(135deg, #f87171, #dc2626); }
         .c-green { background: linear-gradient(135deg, #4ade80, #16a34a); }
         .c-blue { background: linear-gradient(135deg, #60a5fa, #2563eb); }
         .c-yellow { background: linear-gradient(135deg, #facc15, #ca8a04); }
-
         .path-red { background: #fee2e2; }
         .path-green { background: #dcfce7; }
         .path-blue { background: #dbeafe; }
         .path-yellow { background: #fef9c3; }
-
-        .safe {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300000015'%3E%3Cpath d='M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99z'/%3E%3C/svg%3E");
-            background-size: 80%; background-position: center; background-repeat: no-repeat;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
-        }
-
-        .center {
-            grid-column: 7 / span 3; grid-row: 7 / span 3;
-            background: conic-gradient(from 45deg, #22c55e 0 90deg, #eab308 90deg 180deg, #3b82f6 180deg 270deg, #ef4444 270deg 360deg);
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
-            border: 4px solid rgba(255,255,255,0.2);
-        }
-
-        /* 3D TOKEN WITH HORSE */
-        .token {
-            width: 75%; height: 75%; border-radius: 50%;
-            /* 3D Glassy Sphere Look */
-            position: absolute; top: 12.5%; left: 12.5%;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 10; cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.4), inset -3px -3px 5px rgba(0,0,0,0.3), inset 2px 2px 5px rgba(255,255,255,0.9);
-            display: flex; align-items: center; justify-content: center;
-        }
+        .safe { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2300000015'%3E%3Cpath d='M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99z'/%3E%3C/svg%3E"); background-size: 80%; background-position: center; background-repeat: no-repeat; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); }
+        .center { grid-column: 7 / span 3; grid-row: 7 / span 3; background: conic-gradient(from 45deg, #22c55e 0 90deg, #eab308 90deg 180deg, #3b82f6 180deg 270deg, #ef4444 270deg 360deg); box-shadow: inset 0 0 20px rgba(0,0,0,0.3); border: 4px solid rgba(255,255,255,0.2); }
+        .token { width: 75%; height: 75%; border-radius: 50%; position: absolute; top: 12.5%; left: 12.5%; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 10; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.4), inset -3px -3px 5px rgba(0,0,0,0.3), inset 2px 2px 5px rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; }
         .token i { font-size: 14px; color: rgba(255,255,255,0.8); drop-shadow: 0 1px 2px rgba(0,0,0,0.5); }
-
         .token-green { background: radial-gradient(circle at 30% 30%, #86efac, #15803d); }
         .token-yellow { background: radial-gradient(circle at 30% 30%, #fef08a, #a16207); }
         .token-blue { background: radial-gradient(circle at 30% 30%, #93c5fd, #1d4ed8); }
         .token-red { background: radial-gradient(circle at 30% 30%, #fca5a5, #b91c1c); }
-
-        .token.active {
-            animation: bounce 1s infinite;
-            box-shadow: 0 0 15px white, 0 10px 10px rgba(0,0,0,0.5);
-            z-index: 20;
-            filter: brightness(1.2);
-        }
+        .token.active { animation: bounce 1s infinite; box-shadow: 0 0 15px white, 0 10px 10px rgba(0,0,0,0.5); z-index: 20; filter: brightness(1.2); }
         @keyframes bounce { 0%, 100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-30%) scale(1.1); } }
-
-        /* DICE */
         .dice-container { perspective: 1000px; width: 60px; height: 60px; cursor: pointer; }
         .dice { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 1s; }
         .face { position: absolute; width: 60px; height: 60px; background: white; border: 1px solid #ccc; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #333; box-shadow: inset 0 0 10px rgba(0,0,0,0.1); }
@@ -107,44 +52,8 @@
         .face:nth-child(4) { transform: rotateY(-90deg) translateZ(30px); }
         .face:nth-child(5) { transform: rotateX(90deg) translateZ(30px); }
         .face:nth-child(6) { transform: rotateX(-90deg) translateZ(30px); }
-
         .rolling { animation: roll 0.5s linear infinite; }
         @keyframes roll { 0% { transform: rotateX(0) rotateY(0); } 100% { transform: rotateX(360deg) rotateY(360deg); } }
-
-        .hidden { display: none !important; }
-
-        /* AUDIO PLAYER STYLES */
-        #music-widget {
-            position: fixed; bottom: 20px; right: 20px; z-index: 100;
-            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
-            padding: 8px 16px; display: flex; align-items: center; gap: 10px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            max-width: 90%; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-        }
-        #music-widget.minimized {
-            width: 50px; height: 50px; padding: 0; border-radius: 50%;
-            justify-content: center; animation: spin 10s linear infinite;
-            border: 2px solid #fbbf24; background: black;
-        }
-        #music-widget.minimized > *:not(.logo-icon) { display: none; }
-        #music-widget .logo-icon { display: none; font-size: 24px; color: #fbbf24; }
-        #music-widget.minimized .logo-icon { display: block; }
-        #music-widget:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.5); opacity: 1 !important; }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        .marquee { overflow: hidden; white-space: nowrap; max-width: 150px; font-size: 10px; color: #fbbf24; font-weight: bold; }
-        .visualizer { display: flex; gap: 2px; height: 10px; align-items: flex-end; }
-        .visualizer div { width: 3px; background: #fbbf24; animation: eq 0.5s infinite alternate; }
-        .visualizer div:nth-child(2) { animation-delay: 0.1s; }
-        .visualizer div:nth-child(3) { animation-delay: 0.2s; }
-        @keyframes eq { 0% { height: 2px; } 100% { height: 100%; } }
-
-        /* MODE TOGGLE */
-        .toggle-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
-        .toggle-btn.active { background: #eab308; color: black; border-color: #eab308; }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center h-screen w-screen bg-[url('https://images.unsplash.com/photo-1605218427306-635ba2439715?q=80&w=1000&auto=format&fit=crop')] bg-cover">
@@ -156,7 +65,6 @@
         <p class="text-slate-300 mb-4">4 Player Multiplayer</p>
 
         <div class="glass p-6 rounded-2xl mb-4">
-            <!-- NETWORK MODE SELECTOR -->
             <div class="bg-black/40 p-2 rounded-xl mb-4 flex justify-between items-center">
                 <span class="text-[10px] text-slate-400 font-bold ml-2">NETWORK:</span>
                 <div class="flex gap-1">
@@ -186,62 +94,35 @@
 
     <!-- GAME SCREEN -->
     <div id="screen-game" class="relative z-10 w-full h-full hidden flex flex-col">
-        <!-- HEADER -->
         <div class="p-2 flex justify-between items-center glass shrink-0">
             <div class="text-xs font-bold text-slate-300">Room: <span id="room-code" class="text-yellow-400 font-mono select-all">...</span></div>
             <div id="turn-indicator" class="text-xs font-bold px-4 py-1 rounded-full bg-slate-700">Menunggu...</div>
         </div>
 
-        <!-- BOARD AREA -->
         <div class="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
             <div class="ludo-board rounded-lg shadow-2xl">
-                <!-- BASES -->
-                <div class="base c-green" style="grid-row: 1/7; grid-column: 1/7;">
-                    <div class="base-inner" id="base-0"></div>
-                </div>
-                <div class="base c-yellow" style="grid-row: 1/7; grid-column: 10/16;">
-                    <div class="base-inner" id="base-1"></div>
-                </div>
-                <div class="base c-red" style="grid-row: 10/16; grid-column: 1/7;">
-                    <div class="base-inner" id="base-3"></div>
-                </div>
-                <div class="base c-blue" style="grid-row: 10/16; grid-column: 10/16;">
-                    <div class="base-inner" id="base-2"></div>
-                </div>
-
-                <!-- CENTER -->
+                <div class="base c-green" style="grid-row: 1/7; grid-column: 1/7;"><div class="base-inner" id="base-0"></div></div>
+                <div class="base c-yellow" style="grid-row: 1/7; grid-column: 10/16;"><div class="base-inner" id="base-1"></div></div>
+                <div class="base c-red" style="grid-row: 10/16; grid-column: 1/7;"><div class="base-inner" id="base-3"></div></div>
+                <div class="base c-blue" style="grid-row: 10/16; grid-column: 10/16;"><div class="base-inner" id="base-2"></div></div>
                 <div class="center flex items-center justify-center text-4xl font-black text-white/50" id="center-goal">🏆</div>
-
-                <!-- CELLS GENERATED BY JS -->
             </div>
         </div>
 
-        <!-- CONTROLS -->
         <div class="h-32 glass rounded-t-3xl p-4 flex items-center justify-between shrink-0 relative">
             <div class="flex flex-col gap-1">
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full bg-green-500"></div> <span id="p0-name" class="text-xs">P1</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div> <span id="p1-name" class="text-xs">P2</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full bg-blue-500"></div> <span id="p2-name" class="text-xs">P3</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full bg-red-500"></div> <span id="p3-name" class="text-xs">P4</span>
-                </div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-green-500"></div> <span id="p0-name" class="text-xs">P1</span></div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-yellow-500"></div> <span id="p1-name" class="text-xs">P2</span></div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-blue-500"></div> <span id="p2-name" class="text-xs">P3</span></div>
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full bg-red-500"></div> <span id="p3-name" class="text-xs">P4</span></div>
             </div>
-
             <div class="absolute left-1/2 -translate-x-1/2 -top-10">
                  <div class="dice-container" onclick="game.rollDice()">
                      <div id="dice-cube" class="dice">
-                         <div class="face">1</div><div class="face">2</div><div class="face">3</div>
-                         <div class="face">4</div><div class="face">5</div><div class="face">6</div>
+                         <div class="face">1</div><div class="face">2</div><div class="face">3</div><div class="face">4</div><div class="face">5</div><div class="face">6</div>
                      </div>
                  </div>
             </div>
-
             <div class="text-center w-24">
                  <div class="text-[10px] text-slate-400 uppercase font-bold">Dadu</div>
                  <div id="dice-val" class="text-3xl font-black text-yellow-400">-</div>
@@ -265,13 +146,11 @@
         <button onclick="window.audio.openSearch()" aria-label="Search Music" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
     </div>
 
-    <!-- VOICE BUTTON (Fixed Bottom Left) -->
     <button id="btn-mic" onclick="app.toggleVoice()" aria-label="Toggle Voice" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
         <i class="fa-solid fa-microphone-slash"></i>
     </button>
     <div id="voice-streams" class="hidden"></div>
 
-    <!-- MUSIC SEARCH MODAL -->
     <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
         <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
             <button onclick="document.getElementById('modal-music').classList.add('hidden')" aria-label="Close" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
@@ -284,19 +163,16 @@
         </div>
     </div>
 
-    <!-- MANUAL SIGNALING MODAL -->
     <div id="modal-signal" class="fixed inset-0 z-[120] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
         <div class="glass p-6 rounded-3xl w-full max-w-sm flex flex-col relative">
             <button onclick="document.getElementById('modal-signal').classList.add('hidden')" aria-label="Close" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
             <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Manual Signaling</h2>
-
             <div id="signal-step-1">
                 <p class="text-xs text-slate-300 mb-2">1. Salin kode ini & kirim ke teman:</p>
                 <textarea id="my-signal-data" readonly class="w-full h-24 bg-slate-900 p-2 text-[10px] font-mono rounded border border-slate-700 text-green-400 break-all"></textarea>
                 <button onclick="app.copySignal()" class="w-full mt-2 bg-blue-600 py-2 rounded text-xs font-bold mb-2">SALIN KODE SAYA</button>
                 <button onclick="document.getElementById('signal-step-1').classList.add('hidden'); document.getElementById('signal-step-2').classList.remove('hidden');" class="w-full bg-slate-700 py-2 rounded text-xs font-bold mb-4 text-slate-300 border border-slate-600 hover:bg-slate-600">SAYA SUDAH KIRIM →</button>
             </div>
-
             <div id="signal-step-2">
                 <p class="text-xs text-slate-300 mb-2">2. Tempel kode balasan dari teman:</p>
                 <textarea id="other-signal-data" class="w-full h-24 bg-slate-900 p-2 text-[10px] font-mono rounded border border-slate-700 text-white break-all" placeholder="Paste kode teman disini..."></textarea>
@@ -305,7 +181,6 @@
         </div>
     </div>
 
-    <!-- MODAL WIN -->
     <div id="modal-win" class="fixed inset-0 z-50 bg-black/90 hidden flex items-center justify-center p-4">
         <div class="bg-slate-800 p-8 rounded-2xl text-center border border-yellow-500/50">
             <h2 class="text-3xl font-black text-yellow-400 mb-4">PEMENANG!</h2>
@@ -314,60 +189,11 @@
         </div>
     </div>
 
+    <script src="js/utils.js"></script>
     <script>
         const PEER_PREFIX = "NGH-LUDO-V1-";
 
-        // AUDIO SYSTEM
-        class AudioManager {
-            constructor() {
-                this.bgm = new Audio(); this.bgm.volume = 0.3; this.bgm.onended = () => this.handleTrackEnd();
-                this.isMuted = false; this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                this.history = []; this.histIdx = -1;
-                this.timer = null;
-                this.playRandomIndo();
-            }
-            startTimer() { clearTimeout(this.timer); this.timer = setTimeout(() => document.getElementById('music-widget').classList.add('minimized'), 5000); }
-            resetTimer() { clearTimeout(this.timer); document.getElementById('music-widget').classList.remove('minimized'); }
-
-            playSfx(type) {
-                if(this.isMuted) return; const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination);
-                if(type === 'click') { o.type = 'sine'; o.frequency.value = 800; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.1); o.start(); o.stop(this.ctx.currentTime + 0.1); }
-                else if (type === 'dice') { o.type = 'square'; o.frequency.value = 400; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.2); o.start(); o.stop(this.ctx.currentTime + 0.2); }
-                else if (type === 'move') { o.type = 'triangle'; o.frequency.value = 600; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.15); o.start(); o.stop(this.ctx.currentTime + 0.15); }
-                else if (type === 'win') { o.type = 'square'; o.frequency.setValueAtTime(400, this.ctx.currentTime); o.frequency.setValueAtTime(800, this.ctx.currentTime + 0.2); g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.5); o.start(); o.stop(this.ctx.currentTime + 0.5); }
-            }
-            playMusic(url, title, artist, addToHist=true) {
-                this.bgm.src = url; this.bgm.play().catch(e => console.log("Autoplay blocked", e));
-                this.updateUI(title, artist); this.startTimer();
-                if(addToHist) {
-                    if(this.history.length === 0 || this.history[this.history.length-1].url !== url) {
-                         this.history.push({url, title, artist});
-                         this.histIdx = this.history.length - 1;
-                    }
-                }
-            }
-            toggleMute() { this.isMuted = !this.isMuted; this.bgm.muted = this.isMuted; document.getElementById('btn-mute').innerHTML = this.isMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>'; document.querySelector('.visualizer').style.opacity = this.isMuted ? 0 : 1; }
-            async playRandomIndo() { const terms = ['Indonesia Pop', 'Lagu Indonesia', 'Indo Hits', 'Dangdut', 'Band Indonesia']; const term = terms[Math.floor(Math.random()*terms.length)]; this.fetchAndPlay(term, true); }
-            async fetchAndPlay(term, random=false) { try { const offset = random ? Math.floor(Math.random() * 50) : 0; const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&limit=1&offset=${offset}&media=music&country=ID`); const data = await res.json(); if(data.results && data.results.length > 0) { const track = data.results[0]; this.syncAndPlay(track.previewUrl, track.trackName, track.artistName); } } catch(e) {} }
-            syncAndPlay(url, title, artist) {
-                if(state.myIndex === 0) app.send({type: 'MUSIC_SYNC', url, title, artist});
-                this.playMusic(url, title, artist);
-            }
-            handleTrackEnd() { if(state.myIndex === 0) this.next(); }
-            next() { if(state.myIndex !== 0) return; if(this.histIdx < this.history.length - 1) { this.histIdx++; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } else { this.playRandomIndo(); } }
-            prev() { if(state.myIndex !== 0) return; if(this.histIdx > 0) { this.histIdx--; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } }
-            openSearch() { document.getElementById('modal-music').classList.remove('hidden'); }
-            async search() { const q = document.getElementById('music-search-input').value; if(!q) return; const list = document.getElementById('music-results'); list.innerHTML = '<div class="text-center animate-pulse">Mencari...</div>'; try { const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=10&media=music&country=ID`); const data = await res.json(); list.innerHTML = ''; data.results.forEach(t => { const div = document.createElement('div'); div.className = "flex justify-between items-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer"; div.innerHTML = `<div class="truncate w-48"><div class="font-bold text-yellow-400">${t.trackName}</div><div class="text-[10px] text-slate-400">${t.artistName}</div></div><button class="text-xs bg-blue-600 px-2 py-1 rounded"><i class="fa-solid fa-play"></i></button>`; div.onclick = () => { if(state.myIndex === 0) { this.syncAndPlay(t.previewUrl, t.trackName, t.artistName); } else { app.sendHost({type: 'REQ_MUSIC', url: t.previewUrl, title: t.trackName, artist: t.artistName}); alert("Request dikirim ke Host"); } document.getElementById('modal-music').classList.add('hidden'); }; list.appendChild(div); }); } catch(e) { list.innerHTML = 'Error.'; } }
-            updateUI(t, a) { document.getElementById('music-title').innerText = t; document.getElementById('music-artist').innerText = a; }
-        }
-
         // UTILS
-        const utils = {
-            randId: () => Math.floor(1000 + Math.random() * 9000).toString(),
-            sleep: (ms) => new Promise(r => setTimeout(r, ms))
-        };
-
-        // UI
         const ui = {
             screen: (id) => {
                 document.getElementById('screen-home').classList.add('hidden');
@@ -391,10 +217,7 @@
                 window.audio.playSfx('dice');
                 setTimeout(() => {
                     d.classList.remove('rolling');
-                    const rot = {
-                        1: [0, 0], 2: [0, -90], 3: [0, -180],
-                        4: [0, 90], 5: [-90, 0], 6: [90, 0]
-                    }[val] || [0,0];
+                    const rot = { 1: [0, 0], 2: [0, -90], 3: [0, -180], 4: [0, 90], 5: [-90, 0], 6: [90, 0] }[val] || [0,0];
                     d.style.transform = `rotateX(${rot[0]}deg) rotateY(${rot[1]}deg)`;
                     v.innerText = val;
                 }, 800);
@@ -415,7 +238,7 @@
                     p.tokens.forEach((pos, tIdx) => {
                         const el = document.createElement('div');
                         el.className = `token ${tokenClasses[pIdx]}`;
-                        el.innerHTML = '<i class="fa-solid fa-chess-knight"></i>'; // Horse Icon
+                        el.innerHTML = '<i class="fa-solid fa-chess-knight"></i>';
                         el.onclick = () => game.moveToken(tIdx);
                         if(state.game.turn === pIdx && state.game.phase === 'move' && state.myIndex === pIdx) {
                             if(game.canMove(pIdx, tIdx, state.game.diceVal)) el.classList.add('active');
@@ -426,7 +249,6 @@
                     });
                 });
             },
-            // MANUAL SIGNALING UI
             showSignalModal: (data, step) => {
                 document.getElementById('modal-signal').classList.remove('hidden');
                 if(step === 1) {
@@ -444,7 +266,25 @@
         const homeRunCoords = [ [[8,2], [8,3], [8,4], [8,5], [8,6], [8,7]], [[2,8], [3,8], [4,8], [5,8], [6,8], [7,8]], [[8,14], [8,13], [8,12], [8,11], [8,10], [8,9]], [[14,8], [13,8], [12,8], [11,8], [10,8], [9,8]] ];
         function getCellForPos(pIdx, localPos) { if(localPos < 52) { const offset = pIdx * 13; const globalPos = (localPos + offset) % 52; const c = loopCoords[globalPos]; return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`); } else { const hrIdx = localPos - 52; if(hrIdx < 6) { const c = homeRunCoords[pIdx][hrIdx]; return document.querySelector(`.cell[style*="grid-row: ${c[0]}"][style*="grid-column: ${c[1]}"]`); } return null; } }
 
-        const state = { myIndex: -1, roomCode: '', networkMode: 'peerjs', game: { players: [ { name: 'P1', tokens: [-1,-1,-1,-1], baseColor: 'green' }, { name: 'P2', tokens: [-1,-1,-1,-1], baseColor: 'yellow' }, { name: 'P3', tokens: [-1,-1,-1,-1], baseColor: 'blue' }, { name: 'P4', tokens: [-1,-1,-1,-1], baseColor: 'red' } ], turn: 0, diceVal: 0, phase: 'roll', winners: [] } };
+        // FIXED GAME STATE STRUCTURE
+        const state = {
+            myIndex: -1,
+            roomCode: '',
+            networkMode: 'peerjs',
+            game: {
+                turn: 0,
+                players: [
+                    { name: 'P1', tokens: [-1,-1,-1,-1], baseColor: 'green' },
+                    { name: 'P2', tokens: [-1,-1,-1,-1], baseColor: 'yellow' },
+                    { name: 'P3', tokens: [-1,-1,-1,-1], baseColor: 'blue' },
+                    { name: 'P4', tokens: [-1,-1,-1,-1], baseColor: 'red' }
+                ],
+                board: [], // Placeholder if needed, logic is mostly coordinate based
+                diceVal: 0,
+                phase: 'roll',
+                winners: []
+            }
+        };
 
         const game = {
             init: () => { ui.renderBoard(); ui.renderTokens(); },
@@ -528,21 +368,10 @@
                             state.game.players[idx].name = d.name;
                             state.game.players[idx].peerId = conn.peer || 'guest';
                             const update = { type: 'STATE', game: state.game, myIdx: idx };
-
-                            // Send to specific new player
                             if(state.networkMode === 'peerjs') conn.send(update);
                             else if(simplePeer) simplePeer.send(JSON.stringify(update));
-
-                            // Broadcast
                             const broadcastUpdate = { type: 'STATE', game: state.game };
                             if(state.networkMode === 'peerjs') Object.values(connections).forEach(c => { if(c.peer !== conn.peer) c.send(broadcastUpdate); });
-                            // Simple peer only supports 1 guest in this simple implementation for Ludo?
-                            // Standard Ludo needs 4. SimplePeer is 1-to-1.
-                            // To support 4 players with SimplePeer manually is NIGHTMARE (Mesh).
-                            // For this task, "Default Simple Peer" probably implies 2 player or just demonstration.
-                            // I will assume for Ludo Simple Peer = 2 Players (Host + Guest) strictly for simplicity or just broadcast to the one connected channel.
-                            // *Limitation:* SimplePeer manual signaling only connects 2 people easily.
-
                             ui.updateNames(state.game.players);
                         }
                     } else if (d.type === 'ROLL') { game.handleRoll(d.val); app.broadcastGame(); }
@@ -561,14 +390,6 @@
                 if(state.networkMode === 'peerjs') Object.values(connections).forEach(c => c.send(d));
                 else if(simplePeer && simplePeer.connected) simplePeer.send(JSON.stringify(d));
             },
-            updateStatus: () => {
-                const turnName = state.game.players[state.game.turn].name;
-                const isMe = state.game.turn === state.myIndex;
-                const phase = state.game.phase === 'roll' ? 'Mengocok Dadu' : 'Jalan';
-                document.getElementById('turn-indicator').innerText = isMe ? `Giliran Kamu (${phase})` : `${turnName} (${phase})`;
-                document.getElementById('turn-indicator').className = `text-xs font-bold px-4 py-1 rounded-full ${isMe ? 'bg-green-600 animate-pulse' : 'bg-slate-700'}`;
-            },
-            // MANUAL SIGNALING HELPERS
             copySignal: () => { const el = document.getElementById('my-signal-data'); el.select(); document.execCommand('copy'); alert("Kode disalin!"); },
             connectSignal: () => {
                 const data = document.getElementById('other-signal-data').value;
@@ -591,7 +412,6 @@
                         btn.classList.add('text-red-500', 'border-red-500');
                         btn.classList.remove('text-slate-400');
                         btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
-
                         if(state.networkMode === 'peerjs' && peerInstance) {
                              if(state.myIndex === 0) {
                                  Object.values(connections).forEach(c => peerInstance.call(c.peer, stream));
@@ -610,9 +430,9 @@
             }
         };
 
-        // --- NETWORK IMPL ---
+        // --- NETWORK IMPL (FIXED PEER CONFIG) ---
         const initPeerJS = (id, targetId) => {
-            const peer = new Peer(id, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+            const peer = new Peer(id, { config: SHARED_CONFIG });
             peerInstance = peer;
 
             peer.on('call', (call) => {
@@ -627,7 +447,7 @@
                     state.roomCode = pid.replace(PEER_PREFIX, '');
                     document.getElementById('room-code').innerText = state.roomCode;
                     document.getElementById('btn-mic').classList.remove('hidden');
-                    state.game.players[0].peerId = pid; // Sync Host ID
+                    state.game.players[0].peerId = pid;
                     ui.screen('screen-game');
                     ui.updateNames(state.game.players);
                     game.init();

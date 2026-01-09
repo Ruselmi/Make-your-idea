@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Bangers&display=swap');
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: #0f172a;
+    color: white;
+    overflow: hidden;
+    touch-action: pan-x pan-y;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+.glass-dark { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.1); }
+
+/* SCROLL FIXES */
+.scroll-y { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+/* COMMON UTILS */
+.hidden { display: none !important; }
+.screen { width: 100%; height: 100vh; position: absolute; top: 0; left: 0; display: flex; flex-direction: column; overflow: hidden; }
+
+/* AUDIO PLAYER STYLES */
+#music-widget {
+    position: fixed; bottom: 20px; right: 20px; z-index: 100;
+    background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
+    padding: 8px 16px; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    max-width: 90%; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+#music-widget.minimized {
+    width: 50px; height: 50px; padding: 0; border-radius: 50%;
+    justify-content: center; animation: spin 10s linear infinite;
+    border: 2px solid #fbbf24; background: black;
+}
+#music-widget.minimized > *:not(.logo-icon) { display: none; }
+#music-widget .logo-icon { display: none; font-size: 24px; color: #fbbf24; }
+#music-widget.minimized .logo-icon { display: block; }
+#music-widget:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.5); opacity: 1 !important; }
+
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.marquee { overflow: hidden; white-space: nowrap; max-width: 150px; font-size: 10px; color: #fbbf24; font-weight: bold; }
+.visualizer { display: flex; gap: 2px; height: 10px; align-items: flex-end; }
+.visualizer div { width: 3px; background: #fbbf24; animation: eq 0.5s infinite alternate; }
+.visualizer div:nth-child(2) { animation-delay: 0.1s; }
+.visualizer div:nth-child(3) { animation-delay: 0.2s; }
+@keyframes eq { 0% { height: 2px; } 100% { height: 100%; } }
+
+/* MODE TOGGLE */
+.toggle-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 4px 12px; border-radius: 8px; font-size: 10px; font-weight: bold; cursor: pointer; transition: all 0.2s; }
+.toggle-btn.active { background: #eab308; color: black; border-color: #eab308; }
