@@ -163,10 +163,10 @@
             
             <!-- NETWORK MODE SELECTOR -->
             <div class="bg-black/40 p-2 rounded-xl mb-4 flex justify-between items-center">
-                <span class="text-[10px] text-slate-400 font-bold ml-2">NETWORK:</span>
+                <span class="text-[10px] text-slate-400 font-bold ml-2">MODE:</span>
                 <div class="flex gap-1">
-                    <button id="mode-simple" onclick="window.app.setNetworkMode('simple')" class="toggle-btn">SIMPLE PEER</button>
-                    <button id="mode-peerjs" onclick="window.app.setNetworkMode('peerjs')" class="toggle-btn active">PEER JS</button>
+                    <button id="mode-offline" onclick="window.app.setNetworkMode('offline')" class="toggle-btn">OFFLINE</button>
+                    <button id="mode-peerjs" onclick="window.app.setNetworkMode('peerjs')" class="toggle-btn active">ONLINE</button>
                 </div>
             </div>
 
@@ -175,9 +175,15 @@
                 <button onclick="window.utils.randomName(); window.audio.playSfx('click')" class="bg-white/10 px-4 rounded-lg text-yellow-400 hover:bg-white/20 transition"><i class="fa-solid fa-dice"></i></button>
             </div>
             
-            <div class="grid grid-cols-2 gap-3 mb-4">
+            <div id="controls-online" class="grid grid-cols-2 gap-3 mb-4">
                 <button onclick="window.audio.playSfx('click'); window.app.createRoom()" class="bg-gradient-to-r from-blue-600 to-blue-500 py-4 rounded-xl font-bold hover:scale-105 active:scale-95 transition shadow-lg shadow-blue-500/30 text-sm sm:text-base">BUAT ROOM</button>
                 <button onclick="window.audio.playSfx('click'); window.app.showJoinInput()" class="bg-gradient-to-r from-emerald-600 to-emerald-500 py-4 rounded-xl font-bold hover:scale-105 active:scale-95 transition shadow-lg shadow-emerald-500/30 text-sm sm:text-base">GABUNG</button>
+            </div>
+
+            <div id="controls-offline" class="hidden mb-4">
+                 <button onclick="window.audio.playSfx('click'); window.app.createOfflineGame()" class="w-full bg-gradient-to-r from-orange-600 to-red-600 py-4 rounded-xl font-bold hover:scale-105 active:scale-95 transition shadow-lg shadow-orange-500/30 text-sm sm:text-base flex justify-center items-center gap-2">
+                    <i class="fa-solid fa-robot"></i> MAIN OFFLINE (VS BOT / 1 HP)
+                 </button>
             </div>
             
             <button onclick="window.audio.playSfx('click'); window.location.href='ludo.html?name=' + encodeURIComponent(document.getElementById('input-name').value)" class="w-full bg-slate-800 border border-slate-700 py-3 rounded-xl font-bold text-yellow-400 mb-4 hover:bg-slate-700 transition flex items-center justify-center gap-2">
@@ -313,6 +319,7 @@
                                 <option value="UNO_MARATHON">8. Marathon (Panjang)</option>
                                 <option value="UNO_OPEN">9. Open Hand (Terbuka)</option>
                                 <option value="UNO_GOLDEN">10. Golden Era (Visual)</option>
+                                <option value="UNO_DUEL">11. Duel (1v1)</option>
                             </optgroup>
                             <optgroup label="Catur (5 Mode)">
                                 <option value="CHESS_STD">Standard Chess</option>
@@ -610,16 +617,34 @@
         window.app = {
             setNetworkMode: (mode) => {
                 window.state.networkMode = mode;
-                document.getElementById('mode-simple').classList.toggle('active', mode === 'simple');
+                document.getElementById('mode-offline').classList.toggle('active', mode === 'offline');
                 document.getElementById('mode-peerjs').classList.toggle('active', mode === 'peerjs');
 
-                if(mode === 'peerjs') {
-                    document.getElementById('join-peerjs-input').classList.remove('hidden');
-                    document.getElementById('join-simple-input').classList.add('hidden');
+                if(mode === 'offline') {
+                    document.getElementById('controls-online').classList.add('hidden');
+                    document.getElementById('controls-offline').classList.remove('hidden');
+                    document.getElementById('join-area').classList.add('hidden');
                 } else {
-                    document.getElementById('join-peerjs-input').classList.add('hidden');
-                    document.getElementById('join-simple-input').classList.remove('hidden');
+                    document.getElementById('controls-online').classList.remove('hidden');
+                    document.getElementById('controls-offline').classList.add('hidden');
                 }
+            },
+
+            createOfflineGame: () => {
+                window.state.myName = document.getElementById('input-name').value || "Player";
+                window.state.isHost = true;
+                window.state.players = [{id:'host', name:window.state.myName, ready:true}];
+                window.state.myId = 'host';
+                window.state.roomCode = 'OFFLINE';
+
+                window.ui.showScreen('lobby');
+                setTimeout(() => {
+                   window.state.players.push({id:'bot1', name:'Bot Satu', ready:true});
+                   window.state.players.push({id:'bot2', name:'Bot Dua', ready:true});
+                   window.ui.updateLobby();
+                   window.utils.alert("Offline", "Bot telah bergabung otomatis. Atur mode dan mulai!");
+                }, 500);
+                window.ui.updateLobby();
             },
 
             createRoom: () => {
@@ -772,6 +797,11 @@
         // --- NETWORK IMPLEMENTATIONS ---
 
         function sendData(d) {
+            if(window.state.networkMode === 'offline') {
+                if(window.state.isHost) window.app.broadcast(d);
+                else window.app.handleData(d, 'host');
+                return;
+            }
             if(window.state.networkMode === 'peerjs') {
                 if(window.state.isHost) window.app.broadcast(d);
                 else if(peerInstance && peerInstance.conn) peerInstance.conn.send(d);
@@ -922,7 +952,10 @@
                 let res = {up:false, msg:null};
                 if(window.state.gameMode.includes('UNO')) res = window.game.uno.handle(pid, act, pay);
                 else res = window.game.chess.handle(pid, act, pay);
-                if(res.up) window.app.broadcast({type:'UPDATE', gs:window.state.game, msg:res.msg});
+                if(res.up) {
+                    window.app.broadcast({type:'UPDATE', gs:window.state.game, msg:res.msg});
+                    if(window.state.networkMode === 'offline') setTimeout(window.ai.process, 1500);
+                }
             },
             uno: {
                 getTop: () => { const s = window.state.game; return (s.discardPile && s.discardPile.length>0) ? (s.currentSide==='light'?s.cards[s.discardPile[s.discardPile.length-1]].l:s.cards[s.discardPile[s.discardPile.length-1]].d) : null; },
@@ -971,6 +1004,44 @@
         };
 
         window.chat = { toggle: () => { const el = document.getElementById('chat-overlay'); el.classList.toggle('translate-x-full'); if(!el.classList.contains('translate-x-full')) document.getElementById('chat-badge').classList.add('hidden'); }, send: (e) => { e.preventDefault(); const i=document.getElementById('chat-input'); if(i.value){ const msg=i.value; sendData({type:'CHAT', name:window.state.myName, msg}); i.value=''; } } };
+        window.ai = {
+            process: () => {
+                const s = window.state;
+                if(s.networkMode !== 'offline') return;
+                const turnP = s.players[s.game.turnIndex];
+                if(!turnP.id.startsWith('bot')) return;
+
+                if(s.gameMode.includes('UNO')) window.ai.uno(turnP.id);
+            },
+            uno: (botId) => {
+                const s = window.state.game;
+                const hand = s.hands[botId];
+                if(!hand) return;
+
+                const top = window.game.uno.getTop();
+                const curCol = s.currentColor || top.color;
+
+                let playCid = -1;
+                let playCol = 'red';
+
+                const validCards = hand.filter(cid => {
+                    const c = s.currentSide === 'light' ? s.cards[cid].l : s.cards[cid].d;
+                    return (c.color === 'black' || c.color === curCol || c.val === top.val);
+                });
+
+                if(validCards.length > 0) {
+                    playCid = validCards[0];
+                    const c = s.currentSide === 'light' ? s.cards[playCid].l : s.cards[playCid].d;
+                    if(c.color === 'black') {
+                        playCol = ['red','blue','green','yellow'][Math.floor(Math.random()*4)];
+                    }
+                    window.game.process(botId, 'PLAY', {cid: playCid, col: playCol});
+                } else {
+                    window.game.process(botId, 'DRAW');
+                }
+            }
+        };
+
         window.audio = new AudioManager();
         window.utils.randomName();
     </script>

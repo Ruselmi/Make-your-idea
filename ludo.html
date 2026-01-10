@@ -47,6 +47,7 @@
             position: absolute; top: 10%; left: 10%;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10; cursor: pointer;
+            display: flex; justify-content: center; align-items: center;
         }
         .token.active { animation: bounce 1s infinite; border-color: white; box-shadow: 0 0 10px white; z-index: 20; }
         @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20%); } }
@@ -112,18 +113,28 @@
         <div class="glass p-6 rounded-2xl mb-4">
             <!-- NETWORK MODE SELECTOR -->
             <div class="bg-black/40 p-2 rounded-xl mb-4 flex justify-between items-center">
-                <span class="text-[10px] text-slate-400 font-bold ml-2">NETWORK:</span>
+                <span class="text-[10px] text-slate-400 font-bold ml-2">MODE:</span>
                 <div class="flex gap-1">
-                    <button id="mode-simple" onclick="app.setNetworkMode('simple')" class="toggle-btn">SIMPLE PEER</button>
-                    <button id="mode-peerjs" onclick="app.setNetworkMode('peerjs')" class="toggle-btn active">PEER JS</button>
+                    <button id="mode-offline" onclick="app.setNetworkMode('offline')" class="toggle-btn">OFFLINE</button>
+                    <button id="mode-peerjs" onclick="app.setNetworkMode('peerjs')" class="toggle-btn active">ONLINE</button>
                 </div>
             </div>
 
             <input type="text" id="input-name" placeholder="Nama Kamu" class="w-full bg-slate-800 p-3 rounded-lg text-center font-bold text-white mb-4 outline-none border border-slate-600 focus:border-yellow-400">
-            <div class="grid grid-cols-2 gap-3">
+
+            <!-- ONLINE CONTROLS -->
+            <div id="controls-online" class="grid grid-cols-2 gap-3">
                 <button onclick="window.audio.playSfx('click'); app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
                 <button onclick="window.audio.playSfx('click'); app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
             </div>
+
+            <!-- OFFLINE CONTROLS -->
+            <div id="controls-offline" class="hidden">
+                <button onclick="window.audio.playSfx('click'); app.createOfflineGame()" class="w-full bg-orange-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-mobile-screen"></i> MAIN 1 HP (4 Player)
+                </button>
+            </div>
+
             <div id="join-input-area" class="hidden mt-4">
                 <div id="join-peerjs-input">
                     <input type="text" id="input-room" placeholder="Kode Room" class="w-full bg-slate-800 p-3 rounded-lg text-center font-mono uppercase text-xl mb-2 border border-slate-600">
@@ -371,7 +382,9 @@
                         el.className = `token`;
                         el.style.backgroundColor = colors[pIdx];
                         el.onclick = () => game.moveToken(tIdx);
-                        if(state.game.turn === pIdx && state.game.phase === 'move' && state.myIndex === pIdx) {
+                    el.innerHTML = '<i class="fa-solid fa-chess-knight text-xl drop-shadow-md"></i>';
+                    el.style.color = 'white';
+                    if(state.game.turn === pIdx && state.game.phase === 'move' && (state.myIndex === pIdx || state.networkMode === 'offline')) {
                             if(game.canMove(pIdx, tIdx, state.game.diceVal)) el.classList.add('active');
                         }
                         if(pos === -1) { const base = document.getElementById(`base-${pIdx}`); if(base) { const spot = document.createElement('div'); spot.className = 'base-spot w-full h-full relative'; spot.appendChild(el); base.appendChild(spot); } }
@@ -401,12 +414,22 @@
         const state = { myIndex: -1, roomCode: '', networkMode: 'peerjs', game: { players: [ { name: 'P1', tokens: [-1,-1,-1,-1], baseColor: 'green' }, { name: 'P2', tokens: [-1,-1,-1,-1], baseColor: 'yellow' }, { name: 'P3', tokens: [-1,-1,-1,-1], baseColor: 'blue' }, { name: 'P4', tokens: [-1,-1,-1,-1], baseColor: 'red' } ], turn: 0, diceVal: 0, phase: 'roll', winners: [] } };
 
         const game = {
-            init: () => { ui.renderBoard(); ui.renderTokens(); },
-            rollDice: () => { if(state.game.turn !== state.myIndex) return; if(state.game.phase !== 'roll') return; const val = Math.floor(Math.random() * 6) + 1; app.send({ type: 'ROLL', val }); },
+            init: () => { ui.renderBoard(); ui.renderTokens(); app.updateStatus(); },
+            rollDice: () => {
+                if(state.networkMode !== 'offline' && state.game.turn !== state.myIndex) return;
+                if(state.game.phase !== 'roll') return;
+                const val = Math.floor(Math.random() * 6) + 1;
+                app.send({ type: 'ROLL', val });
+            },
             handleRoll: (val) => { state.game.diceVal = val; ui.renderDice(val); if(game.hasValidMoves(state.game.turn, val)) { state.game.phase = 'move'; } else { setTimeout(game.nextTurn, 1500); } ui.renderTokens(); app.updateStatus(); },
             hasValidMoves: (pIdx, roll) => { return state.game.players[pIdx].tokens.some((t, i) => game.canMove(pIdx, i, roll)); },
             canMove: (pIdx, tIdx, roll) => { const pos = state.game.players[pIdx].tokens[tIdx]; if(pos === 99) return false; if(pos === -1) return roll === 6; if(pos + roll > 57) return false; return true; },
-            moveToken: (tIdx) => { if(state.game.turn !== state.myIndex) return; if(state.game.phase !== 'move') return; if(!game.canMove(state.game.turn, tIdx, state.game.diceVal)) return; app.send({ type: 'MOVE', tIdx }); },
+            moveToken: (tIdx) => {
+                if(state.networkMode !== 'offline' && state.game.turn !== state.myIndex) return;
+                if(state.game.phase !== 'move') return;
+                if(!game.canMove(state.game.turn, tIdx, state.game.diceVal)) return;
+                app.send({ type: 'MOVE', tIdx });
+            },
             handleMove: (pIdx, tIdx) => {
                 const p = state.game.players[pIdx]; const roll = state.game.diceVal; let cur = p.tokens[tIdx];
                 if(cur === -1) { p.tokens[tIdx] = 0; } else { p.tokens[tIdx] += roll; if(p.tokens[tIdx] === 57) p.tokens[tIdx] = 99; }
@@ -430,15 +453,29 @@
             },
             setNetworkMode: (mode) => {
                 state.networkMode = mode;
-                document.getElementById('mode-simple').classList.toggle('active', mode === 'simple');
+                document.getElementById('mode-offline').classList.toggle('active', mode === 'offline');
                 document.getElementById('mode-peerjs').classList.toggle('active', mode === 'peerjs');
-                if(mode === 'peerjs') {
-                    document.getElementById('join-peerjs-input').classList.remove('hidden');
-                    document.getElementById('join-simple-input').classList.add('hidden');
+
+                if(mode === 'offline') {
+                    document.getElementById('controls-online').classList.add('hidden');
+                    document.getElementById('controls-offline').classList.remove('hidden');
+                    document.getElementById('join-input-area').classList.add('hidden');
                 } else {
-                    document.getElementById('join-peerjs-input').classList.add('hidden');
-                    document.getElementById('join-simple-input').classList.remove('hidden');
+                    document.getElementById('controls-online').classList.remove('hidden');
+                    document.getElementById('controls-offline').classList.add('hidden');
+                    document.getElementById('join-input-area').classList.add('hidden');
                 }
+            },
+            createOfflineGame: () => {
+                state.game.players[0].name = "P1 (Kamu)";
+                state.game.players[1].name = "P2 (Teman)";
+                state.game.players[2].name = "P3 (Teman)";
+                state.game.players[3].name = "P4 (Teman)";
+                state.myIndex = 0; // Host rights logic
+                ui.screen('screen-game');
+                ui.updateNames(state.game.players);
+                document.getElementById('room-code').innerText = "OFFLINE";
+                game.init();
             },
             createRoom: () => {
                 const name = document.getElementById('input-name').value || "Host";
@@ -461,6 +498,10 @@
                 }
             },
             send: (data) => {
+                if(state.networkMode === 'offline') {
+                     app.handleData(data, {peer: 'me'});
+                     return;
+                }
                 if(state.myIndex === 0) {
                     app.handleData(data, {peer: 'me'}); // Host process
                     if(state.networkMode === 'peerjs') { Object.values(connections).forEach(c => c.send(data)); }
@@ -517,9 +558,9 @@
             },
             updateStatus: () => {
                 const turnName = state.game.players[state.game.turn].name;
-                const isMe = state.game.turn === state.myIndex;
+                const isMe = (state.networkMode === 'offline') || (state.game.turn === state.myIndex);
                 const phase = state.game.phase === 'roll' ? 'Mengocok Dadu' : 'Jalan';
-                document.getElementById('turn-indicator').innerText = isMe ? `Giliran Kamu (${phase})` : `${turnName} (${phase})`;
+                document.getElementById('turn-indicator').innerText = isMe ? `${turnName} (Giliranmu - ${phase})` : `${turnName} (${phase})`;
                 document.getElementById('turn-indicator').className = `text-xs font-bold px-4 py-1 rounded-full ${isMe ? 'bg-green-600 animate-pulse' : 'bg-slate-700'}`;
             },
             // MANUAL SIGNALING HELPERS
