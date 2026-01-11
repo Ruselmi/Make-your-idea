@@ -110,6 +110,8 @@
         <h1 class="text-5xl font-black text-yellow-400 mb-2 drop-shadow-lg" style="font-family: 'Bangers'">LUDO BIRD</h1>
         <p class="text-slate-300 mb-4">4 Player Multiplayer</p>
 
+        <button onclick="document.getElementById('modal-info').classList.remove('hidden')" class="mb-4 text-xs bg-white/10 px-3 py-1 rounded-full text-slate-300 hover:text-white border border-white/20"><i class="fa-solid fa-circle-info"></i> Cara Main</button>
+
         <div class="glass p-6 rounded-2xl mb-4">
             <!-- NETWORK MODE SELECTOR -->
             <div class="bg-black/40 p-2 rounded-xl mb-4 flex justify-between items-center">
@@ -150,11 +152,17 @@
     </div>
 
     <!-- GAME SCREEN -->
-    <div id="screen-game" class="relative z-10 w-full h-full hidden flex flex-col">
+    <div id="screen-game" class="relative z-10 w-full h-full hidden flex flex-col transition-colors duration-500" id="game-container">
         <!-- HEADER -->
-        <div class="p-2 flex justify-between items-center glass shrink-0">
-            <div class="text-xs font-bold text-slate-300">Room: <span id="room-code" class="text-yellow-400 font-mono select-all">...</span></div>
-            <div id="turn-indicator" class="text-xs font-bold px-4 py-1 rounded-full bg-slate-700">Menunggu...</div>
+        <div class="p-2 flex justify-between items-center glass shrink-0" id="game-header">
+            <div class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                <span id="offline-badge" class="hidden bg-orange-600 text-white px-2 py-0.5 rounded text-[10px]">OFFLINE</span>
+                Room: <span id="room-code" class="text-yellow-400 font-mono select-all">...</span>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="document.getElementById('modal-info').classList.remove('hidden')" class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white"><i class="fa-solid fa-question"></i></button>
+                <div id="turn-indicator" class="text-xs font-bold px-4 py-1 rounded-full bg-slate-700">Menunggu...</div>
+            </div>
         </div>
 
         <!-- BOARD AREA -->
@@ -276,6 +284,25 @@
             <h2 class="text-3xl font-black text-yellow-400 mb-4">PEMENANG!</h2>
             <div id="winner-name" class="text-xl text-white mb-6">Player Name</div>
             <button onclick="location.reload()" class="bg-blue-600 px-6 py-2 rounded-full font-bold">MAIN LAGI</button>
+        </div>
+    </div>
+
+    <!-- MODAL INFO (RULES) -->
+    <div id="modal-info" class="fixed inset-0 z-[130] bg-black/95 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative overflow-hidden">
+            <button onclick="document.getElementById('modal-info').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cara Main Ludo</h2>
+            <div class="scroll-y flex-1 pr-2 text-xs text-slate-300 space-y-3">
+                <p>1. <b class="text-white">Mulai:</b> Lempar dadu angka <b class="text-green-400">6</b> untuk mengeluarkan kuda dari markas.</p>
+                <p>2. <b class="text-white">Jalan:</b> Kuda bergerak sesuai angka dadu. Jika dapat 6, lempar lagi!</p>
+                <p>3. <b class="text-white">Tabrak (Kick):</b> Jika mendarat di petak lawan (selain zona aman/bintang), kuda lawan kembali ke markas!</p>
+                <p>4. <b class="text-white">Menang:</b> Masukkan ke-4 kuda ke tengah papan (Finish) untuk menang.</p>
+                <div class="bg-white/5 p-2 rounded border border-white/10 mt-2">
+                    <div class="font-bold text-yellow-400 mb-1">Tips:</div>
+                    Zona aman ditandai dengan symbol/warna khusus. Kuda tidak bisa ditabrak disana.
+                </div>
+            </div>
+            <button onclick="document.getElementById('modal-info').classList.add('hidden')" class="w-full mt-4 bg-blue-600 py-3 rounded-xl font-bold text-white shadow-lg active:scale-95 transition">MENGERTI</button>
         </div>
     </div>
 
@@ -467,14 +494,23 @@
                 }
             },
             createOfflineGame: () => {
-                state.game.players[0].name = "P1 (Kamu)";
-                state.game.players[1].name = "P2 (Teman)";
-                state.game.players[2].name = "P3 (Teman)";
-                state.game.players[3].name = "P4 (Teman)";
+                state.game.players[0].name = "P1 (Merah)";
+                state.game.players[1].name = "P2 (Kuning)";
+                state.game.players[2].name = "P3 (Biru)";
+                state.game.players[3].name = "P4 (Hijau)";
                 state.myIndex = 0; // Host rights logic
+
                 ui.screen('screen-game');
                 ui.updateNames(state.game.players);
-                document.getElementById('room-code').innerText = "OFFLINE";
+
+                // Offline Visuals
+                document.getElementById('room-code').innerText = "1 DEVICE";
+                document.getElementById('offline-badge').classList.remove('hidden');
+                document.getElementById('screen-game').classList.add('bg-slate-900'); // Darker bg for offline
+
+                // Show Info automatically for first time
+                document.getElementById('modal-info').classList.remove('hidden');
+
                 game.init();
             },
             createRoom: () => {
