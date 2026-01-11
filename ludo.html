@@ -22,6 +22,7 @@
             background: white; border: 4px solid #333;
             display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(15, 1fr);
             position: relative;
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .cell { border: 1px solid rgba(0,0,0,0.1); position: relative; }
         .base { grid-row: span 6; grid-column: span 6; display: flex; align-items: center; justify-content: center; border: 4px solid rgba(0,0,0,0.2); }
@@ -44,11 +45,11 @@
 
         /* TOKEN */
         .token {
-            width: 80%; height: 80%; border-radius: 50%;
+            width: 5%; height: 5%; border-radius: 50%; /* Relative to board */
             border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.5);
-            position: absolute; top: 10%; left: 10%;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 10; cursor: pointer;
+            position: absolute;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 20; cursor: pointer;
             display: flex; justify-content: center; align-items: center;
         }
         .token.active { animation: bounce 1s infinite; border-color: white; box-shadow: 0 0 10px white; z-index: 20; }
@@ -421,32 +422,174 @@
                 for(let i=0; i<6; i++) createCell(15-i, 7, i===1?'path-red safe':'', `r-${i}`); for(let i=0; i<6; i++) createCell(15-i, 8, i>0?'path-red':'', `rh-${i}`); for(let i=0; i<6; i++) createCell(15-i, 9, i===2?'safe':'', `r-${12-i}`);
             },
             renderTokens: () => {
-                document.querySelectorAll('.token').forEach(t => t.remove());
+                const board = document.querySelector('.ludo-board');
                 const colors = ['#22c55e', '#eab308', '#3b82f6', '#ef4444'];
+                const cellSize = 100/15; // %
+
+                // Cleanup inactive
+                document.querySelectorAll('.token').forEach(t => {
+                    const [_, p, i] = t.id.split('-');
+                    if(!state.game.players[p].active) t.remove();
+                });
+
                 state.game.players.forEach((p, pIdx) => {
                     if(!p.active) return;
                     p.tokens.forEach((pos, tIdx) => {
-                        const el = document.createElement('div');
-                        el.className = `token`;
-                        el.style.backgroundColor = colors[pIdx];
-                        el.onclick = () => game.moveToken(tIdx);
-                        el.innerHTML = '<i class="fa-solid fa-chess-knight text-xl drop-shadow-md"></i>';
-                        el.style.color = 'white';
+                        const id = `tok-${pIdx}-${tIdx}`;
+                        let el = document.getElementById(id);
 
+                        if(!el) {
+                            el = document.createElement('div');
+                            el.id = id;
+                            el.className = `token`;
+                            el.style.backgroundColor = colors[pIdx];
+                            el.innerHTML = '<i class="fa-solid fa-chess-knight text-[80%] drop-shadow-md"></i>';
+                            el.style.color = 'white';
+                            el.onclick = () => game.moveToken(tIdx);
+                            board.appendChild(el);
+                        }
+
+                        // Interaction
                         const isMyTurn = state.game.turn === pIdx;
                         const isInteractive = state.networkMode === 'offline' ? (p.type === 'human') : (state.myIndex === pIdx);
-
-                        if(isMyTurn && state.game.phase === 'move' && isInteractive) {
-                            if(game.canMove(pIdx, tIdx, state.game.diceVal)) el.classList.add('active');
+                        if(isMyTurn && state.game.phase === 'move' && isInteractive && game.canMove(pIdx, tIdx, state.game.diceVal)) {
+                            el.classList.add('active');
+                            el.style.pointerEvents = 'auto';
                         } else {
+                            el.classList.remove('active');
                             el.style.pointerEvents = 'none';
                         }
 
-                        if(pos === -1) { const base = document.getElementById(`base-${pIdx}`); if(base) { const spot = document.createElement('div'); spot.className = 'base-spot w-full h-full relative'; spot.appendChild(el); base.appendChild(spot); } }
-                        else if (pos === 99) { const center = document.getElementById('center-goal'); el.style.width='15px'; el.style.height='15px'; el.style.position='relative'; center.appendChild(el); }
-                        else { let cell = getCellForPos(pIdx, pos); if(cell) { if(cell.children.length > 0) { const offset = cell.children.length * 5; el.style.left = (10 + offset) + '%'; el.style.top = (10 + offset) + '%'; } cell.appendChild(el); } }
+                        // Position Calculation
+                        let r, c;
+                        if(pos === -1) {
+                            // Base Positions (Approximate centers of 2x2 grid in 6x6 base)
+                            const baseOffsets = [[2,2],[2,5],[5,2],[5,5]];
+                            const off = baseOffsets[tIdx];
+                            // Base Origins (Grid Coords)
+                            const baseOrigins = [[1,1], [1,10], [10,10], [10,1]]; // Green, Yellow, Blue, Red (Standard Order Check)
+                            // CSS Grid:
+                            // Green: 1/7, 1/7 -> Origin 1,1
+                            // Yellow: 1/7, 10/16 -> Origin 1,10
+                            // Red: 10/16, 1/7 -> Origin 10,1
+                            // Blue: 10/16, 10/16 -> Origin 10,10
+                            // Correct Mapping based on Base IDs (0=G, 1=Y, 2=B, 3=R in code?? No wait check bases)
+                            // In renderBoard:
+                            // Base 0 (Green): Row 1, Col 1
+                            // Base 1 (Yellow): Row 1, Col 10
+                            // Base 3 (Red): Row 10, Col 1
+                            // Base 2 (Blue): Row 10, Col 10
+                            // Wait, my array index was 0,1,2,3?
+                            // Players: 0=Green, 1=Yellow, 2=Blue, 3=Red.
+                            // Base 2 is Blue (Bottom Right). Base 3 is Red (Bottom Left).
+                            // Let's correct Base Origins array:
+                            const origins = {
+                                0: [1,1], // Green
+                                1: [1,10], // Yellow
+                                2: [10,10], // Blue
+                                3: [10,1]   // Red
+                            };
+                            const origin = origins[pIdx];
+                            // Add offset (scaled slightly to fit in white box)
+                            // The white box is 70% of 6x6.
+                            // Let's just hardcode nice looking positions relative to board
+                            // Green (Top Left): 2.5, 2.5 approx
+                            const bases = {
+                                0: [[2,2], [2,5], [5,2], [5,5]], // Top Left
+                                1: [[2,11], [2,14], [5,11], [5,14]], // Top Right
+                                2: [[11,11], [11,14], [14,11], [14,14]], // Bottom Right
+                                3: [[11,2], [11,5], [14,2], [14,5]] // Bottom Left
+                            };
+                            [r, c] = bases[pIdx][tIdx];
+                        } else if (pos === 99) {
+                            r = 8; c = 8;
+                        } else {
+                            // Path
+                            let cell = getCellForPos(pIdx, pos);
+                            if(cell) {
+                                r = parseInt(cell.style.gridRowStart || cell.style.gridRow);
+                                c = parseInt(cell.style.gridColumnStart || cell.style.gridColumn);
+                            } else { r=8; c=8; } // Fallback
+                        }
+
+                        // Convert Grid (1-15) to % (0-100)
+                        // Grid 1 is 0%. Grid 15 is ~93.3%.
+                        // Center of cell N is (N-1)*6.66 + 3.33
+                        const pct = (val) => ((val - 1) * cellSize) + (cellSize * 0.15); // +Offset for centering
+
+                        el.style.top = pct(r) + '%';
+                        el.style.left = pct(c) + '%';
+
+                        // Stack offset if multiple tokens in same spot (except base)
+                        if(pos !== -1 && pos !== 99) {
+                            // Count others in same pos
+                            let stackIdx = 0;
+                            state.game.players.forEach((op, opIdx) => {
+                                op.tokens.forEach((ot, otIdx) => {
+                                    if(opIdx === pIdx && otIdx === tIdx) return;
+                                    if(ot === pos) stackIdx++;
+                                });
+                            });
+                            if(stackIdx > 0) {
+                                el.style.transform = `translate(${stackIdx * 3}px, ${stackIdx * -3}px)`;
+                            } else {
+                                el.style.transform = 'none';
+                            }
+                        } else {
+                            el.style.transform = 'none';
+                        }
                     });
                 });
+
+                ui.updateView();
+            },
+            updateView: () => {
+                const board = document.querySelector('.ludo-board');
+                const pIdx = state.game.turn;
+                // Rotate board so active player is at Bottom
+                // Green (0) Top Left -> Rotate -90 (Left becomes Bottom? No. Left=West. -90=South)
+                // Wait. Green starts on Left side.
+                // If I want Green's path (Horizontal) to be at bottom?
+                // Standard Ludo View:
+                // Green: Bottom Left. Red: Bottom Right.
+                // My Grid: Green Top Left.
+                // To make Green appear Bottom Left: Rotate -90?
+                // Let's just center the 'Home' path at the bottom.
+                // Green Home Path: Row 7, Cols 1-6. (West)
+                // To make West South: Rotate -90deg.
+                // Yellow Home Path: Cols 8, Rows 1-6 (North). To make North South: Rotate 180deg.
+                // Blue Home Path: Row 7, Cols 10-15 (East). To make East South: Rotate 90deg.
+                // Red Home Path: Cols 8, Rows 10-15 (South). Already South. Rotate 0deg.
+
+                // Mapping
+                const rotations = {
+                    0: -90, // Green
+                    1: 180, // Yellow
+                    2: 90,  // Blue
+                    3: 0    // Red
+                };
+
+                // If Offline: Always rotate to current turn
+                // If Online: Rotate to My Index (Fixed View) or Current Turn?
+                // User said "Auto Move", implies dynamic.
+                // But Online usually you want YOUR view fixed.
+                // "1 hp 2 player" -> Offline.
+                // "Online (room)" -> Online.
+
+                let rot = 0;
+                if(state.networkMode === 'offline') {
+                    rot = rotations[state.game.turn];
+                } else {
+                    // Online: Fix view to ME
+                    rot = rotations[state.myIndex] || 0;
+                }
+
+                board.style.transform = `rotate(${rot}deg)`;
+
+                // Counter-rotate tokens/text?
+                // Text might be upside down but user asked for "Sistem Dadu Auto Binda" (Dice moves/View moves)
+                // Tokens are icons, they rotate too. It's acceptable for Ludo.
+                // Dice container is separate, it doesn't rotate.
             },
             // MANUAL SIGNALING UI
             showSignalModal: (data, step) => {

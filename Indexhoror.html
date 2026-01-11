@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RUMAH TUA (Horror Co-op)</title>
+    <link rel="stylesheet" href="Horor.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Custom Modules -->
+    <script src="voice.js"></script>
+    <script src="Three.js"></script> <!-- Helper -->
+    <script src="Map.js"></script>
+    <script src="Puzzle.js"></script>
+    <script src="Hantu.js"></script>
+    <script src="Horor.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 3D CANVAS -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- FX LAYERS -->
+    <div id="vignette"></div>
+    <div id="noise"></div>
+
+    <!-- UI LAYER -->
+    <div id="ui-layer">
+        <!-- TOP HUD -->
+        <div id="hud-top" class="hud-panel">
+            <div class="flex flex-col gap-1">
+                <div class="role-badge" id="role-badge">OBSERVER</div>
+                <div class="text-[10px] text-gray-400" id="room-code-disp">ROOM: ????</div>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+                <div class="text-[10px]">FEAR LEVEL</div>
+                <div class="fear-meter"><div class="fear-fill" id="fear-bar"></div></div>
+            </div>
+        </div>
+
+        <!-- JOYSTICK -->
+        <div id="joystick-zone">
+            <div id="joystick-knob"></div>
+        </div>
+
+        <!-- ACTIONS -->
+        <div id="actions-zone">
+            <button id="btn-interact" class="action-btn btn-primary"><i class="fa-solid fa-hand"></i></button>
+            <button id="btn-flashlight" class="action-btn"><i class="fa-solid fa-lightbulb"></i></button>
+        </div>
+
+        <!-- RADIO -->
+        <div id="radio-panel">
+            <div class="text-[8px] text-gray-500">RADIO</div>
+            <button id="btn-radio" class="radio-btn"><i class="fa-solid fa-walkie-talkie"></i></button>
+        </div>
+
+        <!-- BACK -->
+        <button onclick="window.parent.postMessage('EXIT_GAME', '*')" class="absolute top-20 left-2 pointer-events-auto text-white/50 hover:text-white text-xs"><i class="fa-solid fa-arrow-left"></i> KELUAR</button>
+    </div>
+
+    <!-- MAIN MENU MODAL -->
+    <div id="menu-modal" class="modal">
+        <div class="modal-content">
+            <h1 class="text-3xl text-red-600 font-bold mb-2" style="font-family: 'Times New Roman', serif;">RUMAH TUA</h1>
+            <p class="text-xs text-gray-400 mb-6">Co-op Horror Experience</p>
+
+            <input type="text" id="input-name" placeholder="NAMA" class="input-code text-sm">
+
+            <div class="grid grid-cols-2 gap-2 mt-4">
+                <button onclick="Game.createRoom()" class="btn-menu bg-red-800 text-white hover:bg-red-700">BUAT ROOM</button>
+                <button onclick="document.getElementById('join-panel').classList.remove('hidden')" class="btn-menu bg-gray-800 text-white hover:bg-gray-700">GABUNG</button>
+            </div>
+
+            <div id="join-panel" class="hidden mt-4 border-t border-gray-700 pt-4">
+                <input type="text" id="input-room" placeholder="KODE 4 DIGIT" class="input-code" maxlength="4">
+                <button onclick="Game.joinRoom()" class="btn-menu">MASUK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOBBY MODAL -->
+    <div id="lobby-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 class="text-xl text-yellow-500 mb-4">LOBBY</h2>
+            <div class="text-4xl font-mono text-white mb-6" id="lobby-code">----</div>
+
+            <div class="text-left text-sm mb-4 space-y-2">
+                <div class="flex justify-between border-b border-gray-800 pb-1"><span>PLAYER 1 (Host):</span> <span id="p1-name" class="text-red-500">...</span></div>
+                <div class="flex justify-between border-b border-gray-800 pb-1"><span>PLAYER 2:</span> <span id="p2-name" class="text-blue-500">...</span></div>
+            </div>
+
+            <div class="text-xs text-gray-500 mb-4">Menunggu Player 2...</div>
+            <button id="btn-start" onclick="Game.start()" class="btn-menu hidden">MULAI GAME</button>
+        </div>
+    </div>
+
+    <!-- LOADING SCREEN -->
+    <div id="loading-screen" class="modal hidden">
+        <div class="text-center">
+            <div class="text-red-600 text-2xl animate-pulse font-bold">MEMUAT...</div>
+            <div class="text-xs text-gray-500 mt-2">Jangan melihat ke belakang.</div>
+        </div>
+    </div>
+
+    <script>
+        // Placeholder for Game global
+        // Real implementation in Horor.js
+    </script>
+</body>
+</html>
