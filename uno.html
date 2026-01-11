@@ -19,16 +19,22 @@
 
         /* CARD STYLES */
         .card {
-            width: 70px; height: 100px;
-            background: white; border-radius: 8px;
+            width: 60px; height: 90px;
+            background: white; border-radius: 6px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
             transition: transform 0.2s; cursor: pointer;
-            border: 4px solid white;
+            border: 3px solid white;
         }
         .card:hover { transform: translateY(-10px) scale(1.1); z-index: 50; }
-        .card-inner { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; border-radius: 4px; position: relative; overflow: hidden; }
-        .card-small { font-size: 10px; position: absolute; padding: 2px; }
+        .card-inner { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border-radius: 4px; position: relative; overflow: hidden; }
+        .card-small { font-size: 8px; position: absolute; padding: 2px; }
+
+        @media (min-width: 640px) {
+            .card { width: 80px; height: 120px; border-width: 4px; border-radius: 8px; }
+            .card-inner { font-size: 32px; }
+            .card-small { font-size: 12px; }
+        }
         .tl { top: 2px; left: 2px; }
         .br { bottom: 2px; right: 2px; transform: rotate(180deg); }
 
@@ -48,18 +54,26 @@
         .center-deck { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; }
 
         /* PLAYER ZONES */
-        .zone { position: absolute; display: flex; gap: 5px; transition: all 0.5s; }
-        .zone-bottom { bottom: 20px; left: 50%; transform: translateX(-50%); align-items: flex-end; } /* ME */
-        .zone-top { top: 20px; left: 50%; transform: translateX(-50%) rotate(180deg); } /* P2 */
-        .zone-left { left: 20px; top: 50%; transform: translateY(-50%) rotate(90deg); } /* P3 */
-        .zone-right { right: 20px; top: 50%; transform: translateY(-50%) rotate(-90deg); } /* P4 */
+        .zone { position: absolute; display: flex; align-items: center; justify-content: center; transition: all 0.5s; }
+        .zone-bottom { bottom: 100px; left: 50%; transform: translateX(-50%); } /* ME - Moved up for music widget */
+        .zone-top { top: 15px; left: 50%; transform: translateX(-50%) rotate(180deg); } /* P2 */
+        .zone-left { left: 15px; top: 50%; transform: translateY(-50%) rotate(90deg); } /* P3 */
+        .zone-right { right: 15px; top: 50%; transform: translateY(-50%) rotate(-90deg); } /* P4 */
 
-        .avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; background: #334155; position: absolute; z-index: 10; transition: all 0.3s; }
+        @media (min-width: 640px) {
+            .zone-bottom { bottom: 40px; }
+            .zone-top { top: 30px; }
+            .zone-left { left: 40px; }
+            .zone-right { right: 40px; }
+        }
+
+        .avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 10px; background: #334155; position: absolute; z-index: 10; transition: all 0.3s; }
+        @media (min-width: 640px) { .avatar { width: 48px; height: 48px; font-size: 14px; } }
         .avatar.active { border-color: #eab308; box-shadow: 0 0 15px #eab308; transform: scale(1.1); }
 
         /* AUDIO PLAYER STYLES */
         #music-widget {
-            position: fixed; bottom: 80px; right: 20px; z-index: 100;
+            position: fixed; bottom: 20px; right: 20px; z-index: 100; /* Lowered, but player hand moved up */
             background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
             padding: 8px 16px; display: flex; align-items: center; gap: 10px;
@@ -450,7 +464,7 @@
                 disEl.innerHTML = '';
                 if(state.game.discard.length > 0) {
                     const topId = state.game.discard[state.game.discard.length-1];
-                    disEl.appendChild(ui.createCardEl(topId, false));
+                    disEl.appendChild(ui.createCardEl(topId, true)); // FIX: Show Face Up
                 }
 
                 // Turn Indicator
@@ -474,23 +488,43 @@
                 const av = document.createElement('div');
                 av.className = `avatar ${state.game.players[state.game.turn] === p ? 'active' : ''}`;
                 av.innerText = p.name.substring(0,2).toUpperCase();
-                av.style.top = isMe ? '-60px' : '-50px';
+
+                // Avatar Position Logic
+                if (cls === 'zone-bottom') av.style.bottom = '110%';
+                else if (cls === 'zone-top') av.style.bottom = '-60%';
+                else if (cls.includes('left')) av.style.right = '-60%';
+                else if (cls.includes('right')) av.style.left = '-60%';
+
                 z.appendChild(av);
 
-                // Hand
+                // Hand Container to manage width
+                const handCon = document.createElement('div');
+                handCon.className = 'flex items-center justify-center';
+
                 p.hand.forEach((cid, i) => {
                     const cEl = ui.createCardEl(cid, isMe);
+
+                    // Dynamic Overlap Calculation
+                    // If many cards, overlap more.
+                    const overlap = p.hand.length > 7 ? -40 : -30;
+                    const mobileOverlap = p.hand.length > 5 ? -35 : -25;
+                    const isMobile = window.innerWidth < 640;
+                    const finalOverlap = isMobile ? mobileOverlap : overlap;
+
                     if(!isMe) {
                         // Backside
-                        cEl.innerHTML = '<div class="w-full h-full bg-black rounded border-2 border-white flex items-center justify-center"><div class="text-red-500 font-titan text-xl">UNO</div></div>';
-                        cEl.style.marginLeft = '-40px';
+                        cEl.innerHTML = '<div class="w-full h-full bg-black rounded border-2 border-white flex items-center justify-center"><div class="text-red-500 font-titan text-[10px] sm:text-xl">UNO</div></div>';
+                        cEl.style.marginLeft = i===0 ? '0' : (finalOverlap + 'px');
                     } else {
-                        cEl.style.marginLeft = i===0 ? '0' : '-30px';
+                        cEl.style.marginLeft = i===0 ? '0' : (finalOverlap + 'px');
                         cEl.onclick = () => game.playCard(cid);
+                        // Elevate on hover (handled by CSS, but ensure Z-index works with overlap)
+                        cEl.style.zIndex = i;
                     }
-                    z.appendChild(cEl);
+                    handCon.appendChild(cEl);
                 });
 
+                z.appendChild(handCon);
                 parent.appendChild(z);
             },
             createCardEl: (cid, faceUp) => {
