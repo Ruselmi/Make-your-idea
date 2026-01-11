@@ -7,6 +7,7 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="bot.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <style>
@@ -131,9 +132,20 @@
             </div>
 
             <!-- OFFLINE CONTROLS -->
-            <div id="controls-offline" class="hidden">
+            <div id="controls-offline" class="hidden space-y-3">
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <select id="offline-player-count" class="bg-slate-800 p-2 rounded border border-slate-600">
+                        <option value="2">2 Pemain</option>
+                        <option value="3">3 Pemain</option>
+                        <option value="4" selected>4 Pemain</option>
+                    </select>
+                    <select id="offline-mode-type" class="bg-slate-800 p-2 rounded border border-slate-600">
+                        <option value="human">Pass & Play</option>
+                        <option value="bot">Lawan Bot</option>
+                    </select>
+                </div>
                 <button onclick="window.audio.playSfx('click'); app.createOfflineGame()" class="w-full bg-orange-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-mobile-screen"></i> MAIN 1 HP (4 Player)
+                    <i class="fa-solid fa-play"></i> MULAI
                 </button>
             </div>
 
@@ -404,16 +416,24 @@
                 document.querySelectorAll('.token').forEach(t => t.remove());
                 const colors = ['#22c55e', '#eab308', '#3b82f6', '#ef4444'];
                 state.game.players.forEach((p, pIdx) => {
+                    if(!p.active) return;
                     p.tokens.forEach((pos, tIdx) => {
                         const el = document.createElement('div');
                         el.className = `token`;
                         el.style.backgroundColor = colors[pIdx];
                         el.onclick = () => game.moveToken(tIdx);
-                    el.innerHTML = '<i class="fa-solid fa-chess-knight text-xl drop-shadow-md"></i>';
-                    el.style.color = 'white';
-                    if(state.game.turn === pIdx && state.game.phase === 'move' && (state.myIndex === pIdx || state.networkMode === 'offline')) {
+                        el.innerHTML = '<i class="fa-solid fa-chess-knight text-xl drop-shadow-md"></i>';
+                        el.style.color = 'white';
+
+                        const isMyTurn = state.game.turn === pIdx;
+                        const isInteractive = state.networkMode === 'offline' ? (p.type === 'human') : (state.myIndex === pIdx);
+
+                        if(isMyTurn && state.game.phase === 'move' && isInteractive) {
                             if(game.canMove(pIdx, tIdx, state.game.diceVal)) el.classList.add('active');
+                        } else {
+                            el.style.pointerEvents = 'none';
                         }
+
                         if(pos === -1) { const base = document.getElementById(`base-${pIdx}`); if(base) { const spot = document.createElement('div'); spot.className = 'base-spot w-full h-full relative'; spot.appendChild(el); base.appendChild(spot); } }
                         else if (pos === 99) { const center = document.getElementById('center-goal'); el.style.width='15px'; el.style.height='15px'; el.style.position='relative'; center.appendChild(el); }
                         else { let cell = getCellForPos(pIdx, pos); if(cell) { if(cell.children.length > 0) { const offset = cell.children.length * 5; el.style.left = (10 + offset) + '%'; el.style.top = (10 + offset) + '%'; } cell.appendChild(el); } }
@@ -443,16 +463,38 @@
         const game = {
             init: () => { ui.renderBoard(); ui.renderTokens(); app.updateStatus(); },
             rollDice: () => {
-                if(state.networkMode !== 'offline' && state.game.turn !== state.myIndex) return;
+                const p = state.game.players[state.game.turn];
+                const isInteractive = state.networkMode === 'offline' ? (p.type === 'human') : (state.game.turn === state.myIndex);
+                if (!isInteractive && p.type !== 'bot') return;
+
                 if(state.game.phase !== 'roll') return;
                 const val = Math.floor(Math.random() * 6) + 1;
                 app.send({ type: 'ROLL', val });
             },
-            handleRoll: (val) => { state.game.diceVal = val; ui.renderDice(val); if(game.hasValidMoves(state.game.turn, val)) { state.game.phase = 'move'; } else { setTimeout(game.nextTurn, 1500); } ui.renderTokens(); app.updateStatus(); },
-            hasValidMoves: (pIdx, roll) => { return state.game.players[pIdx].tokens.some((t, i) => game.canMove(pIdx, i, roll)); },
+            handleRoll: (val) => {
+                state.game.diceVal = val;
+                ui.renderDice(val);
+                setTimeout(() => {
+                    if(game.hasValidMoves(state.game.turn, val)) {
+                        state.game.phase = 'move';
+                        ui.renderTokens();
+                        app.updateStatus();
+                        game.checkBot();
+                    } else {
+                        setTimeout(game.nextTurn, 1000);
+                    }
+                }, 800);
+            },
+            hasValidMoves: (pIdx, roll) => {
+                if(!state.game.players[pIdx].active) return false;
+                return state.game.players[pIdx].tokens.some((t, i) => game.canMove(pIdx, i, roll));
+            },
             canMove: (pIdx, tIdx, roll) => { const pos = state.game.players[pIdx].tokens[tIdx]; if(pos === 99) return false; if(pos === -1) return roll === 6; if(pos + roll > 57) return false; return true; },
             moveToken: (tIdx) => {
-                if(state.networkMode !== 'offline' && state.game.turn !== state.myIndex) return;
+                const p = state.game.players[state.game.turn];
+                const isInteractive = state.networkMode === 'offline' ? (p.type === 'human') : (state.game.turn === state.myIndex);
+                if (!isInteractive && p.type !== 'bot') return;
+
                 if(state.game.phase !== 'move') return;
                 if(!game.canMove(state.game.turn, tIdx, state.game.diceVal)) return;
                 app.send({ type: 'MOVE', tIdx });
@@ -460,11 +502,46 @@
             handleMove: (pIdx, tIdx) => {
                 const p = state.game.players[pIdx]; const roll = state.game.diceVal; let cur = p.tokens[tIdx];
                 if(cur === -1) { p.tokens[tIdx] = 0; } else { p.tokens[tIdx] += roll; if(p.tokens[tIdx] === 57) p.tokens[tIdx] = 99; }
-                if(p.tokens[tIdx] < 52 && p.tokens[tIdx] !== -1) { const myGlobal = (p.tokens[tIdx] + pIdx * 13) % 52; const isSafe = [0,8,13,21,26,34,39,47].includes(myGlobal); if(!isSafe) { state.game.players.forEach((opp, oIdx) => { if(pIdx !== oIdx) { opp.tokens.forEach((ot, otIdx) => { if(ot !== -1 && ot < 52) { const oppGlobal = (ot + oIdx * 13) % 52; if(myGlobal === oppGlobal) { opp.tokens[otIdx] = -1; window.audio.playSfx('win'); } } }); } }); } }
+                if(p.tokens[tIdx] < 52 && p.tokens[tIdx] !== -1) { const myGlobal = (p.tokens[tIdx] + pIdx * 13) % 52; const isSafe = [0,8,13,21,26,34,39,47].includes(myGlobal); if(!isSafe) { state.game.players.forEach((opp, oIdx) => { if(pIdx !== oIdx && opp.active) { opp.tokens.forEach((ot, otIdx) => { if(ot !== -1 && ot < 52) { const oppGlobal = (ot + oIdx * 13) % 52; if(myGlobal === oppGlobal) { opp.tokens[otIdx] = -1; window.audio.playSfx('win'); } } }); } }); } }
                 window.audio.playSfx('move'); ui.renderTokens(); if(p.tokens.every(t => t === 99)) { state.game.winners.push(p.name); ui.showWin(p.name); }
-                if(roll === 6) { state.game.phase = 'roll'; app.updateStatus("Main Lagi!"); } else { game.nextTurn(); }
+                if(roll === 6) {
+                    state.game.phase = 'roll';
+                    app.updateStatus("Main Lagi!");
+                    game.checkBot();
+                } else {
+                    game.nextTurn();
+                }
             },
-            nextTurn: () => { state.game.turn = (state.game.turn + 1) % 4; state.game.phase = 'roll'; state.game.diceVal = 0; ui.renderTokens(); app.updateStatus(); }
+            nextTurn: () => {
+                let loops = 0;
+                do {
+                    state.game.turn = (state.game.turn + 1) % 4;
+                    loops++;
+                } while ((!state.game.players[state.game.turn].active) && loops < 10);
+
+                state.game.phase = 'roll';
+                state.game.diceVal = 0;
+                ui.renderTokens();
+                app.updateStatus();
+                game.checkBot();
+            },
+            checkBot: () => {
+                if(state.networkMode !== 'offline') return;
+                const p = state.game.players[state.game.turn];
+                if(p.type === 'bot' && p.active) {
+                    setTimeout(() => {
+                        if(state.game.phase === 'roll') {
+                            game.rollDice();
+                        } else if(state.game.phase === 'move') {
+                            setTimeout(() => {
+                                const tIdx = BotAI.Ludo.decide(state.game.turn, state.game.diceVal);
+                                if(tIdx !== null) game.moveToken(tIdx);
+                                else game.nextTurn();
+                            }, 1000);
+                        }
+                    }, 1000);
+                }
+            }
         };
 
         // --- NETWORK MANAGER ---
@@ -494,21 +571,44 @@
                 }
             },
             createOfflineGame: () => {
-                state.game.players[0].name = "P1 (Merah)";
-                state.game.players[1].name = "P2 (Kuning)";
-                state.game.players[2].name = "P3 (Biru)";
-                state.game.players[3].name = "P4 (Hijau)";
-                state.myIndex = 0; // Host rights logic
+                const pCount = parseInt(document.getElementById('offline-player-count').value);
+                const modeType = document.getElementById('offline-mode-type').value;
+
+                state.game.players = [
+                    { name: 'P1 (Hijau)', tokens: [-1,-1,-1,-1], baseColor: 'green', id: 'p1', type: 'human' },
+                    { name: 'P2 (Kuning)', tokens: [-1,-1,-1,-1], baseColor: 'yellow', id: 'p2', type: 'human' },
+                    { name: 'P3 (Biru)', tokens: [-1,-1,-1,-1], baseColor: 'blue', id: 'p3', type: 'human' },
+                    { name: 'P4 (Merah)', tokens: [-1,-1,-1,-1], baseColor: 'red', id: 'p4', type: 'human' }
+                ];
+
+                for(let i=0; i<4; i++) {
+                    if (i >= pCount) state.game.players[i].active = false;
+                    else {
+                        state.game.players[i].active = true;
+                        if (modeType === 'bot' && i > 0) {
+                            state.game.players[i].type = 'bot';
+                            state.game.players[i].name = `Bot ${i+1}`;
+                        }
+                    }
+                }
+
+                if (pCount === 2) {
+                    state.game.players[1].active = false;
+                    state.game.players[3].active = false;
+                    state.game.players[2].active = true;
+                    if(modeType === 'bot') {
+                        state.game.players[2].type = 'bot';
+                        state.game.players[2].name = "Bot";
+                    }
+                }
+
+                state.myIndex = 0;
 
                 ui.screen('screen-game');
                 ui.updateNames(state.game.players);
 
-                // Offline Visuals
-                document.getElementById('room-code').innerText = "1 DEVICE";
+                document.getElementById('room-code').innerText = modeType === 'bot' ? "VS BOT" : "LOCAL";
                 document.getElementById('offline-badge').classList.remove('hidden');
-                document.getElementById('screen-game').classList.add('bg-slate-900'); // Darker bg for offline
-
-                // Show Info automatically for first time
                 document.getElementById('modal-info').classList.remove('hidden');
 
                 game.init();

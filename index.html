@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="bot.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 
@@ -180,10 +181,27 @@
                 <button onclick="window.audio.playSfx('click'); window.app.showJoinInput()" class="bg-gradient-to-r from-emerald-600 to-emerald-500 py-4 rounded-xl font-bold hover:scale-105 active:scale-95 transition shadow-lg shadow-emerald-500/30 text-sm sm:text-base">GABUNG</button>
             </div>
 
-            <div id="controls-offline" class="hidden mb-4">
-                 <button onclick="window.audio.playSfx('click'); window.app.createOfflineGame()" class="w-full bg-gradient-to-r from-orange-600 to-red-600 py-4 rounded-xl font-bold hover:scale-105 active:scale-95 transition shadow-lg shadow-orange-500/30 text-sm sm:text-base flex justify-center items-center gap-2">
-                    <i class="fa-solid fa-robot"></i> MAIN OFFLINE (VS BOT / 1 HP)
-                 </button>
+            <div id="controls-offline" class="hidden mb-4 space-y-2">
+                 <!-- Chess Controls -->
+                 <div id="offline-chess-opts" class="hidden grid grid-cols-2 gap-2">
+                     <button onclick="window.app.createOfflineGame('chess_human')" class="bg-slate-700 py-3 rounded-lg text-xs font-bold border border-slate-600 hover:bg-slate-600">VS TEMAN (1 HP)</button>
+                     <button onclick="window.app.createOfflineGame('chess_bot')" class="bg-orange-600 py-3 rounded-lg text-xs font-bold hover:bg-orange-500">VS BOT</button>
+                 </div>
+
+                 <!-- Uno Controls -->
+                 <div id="offline-uno-opts" class="hidden">
+                     <div class="flex gap-2 items-center mb-2 bg-slate-800 p-2 rounded">
+                         <span class="text-xs text-slate-400 font-bold">Lawan Bot:</span>
+                         <select id="uno-bot-count" class="bg-slate-700 text-xs p-1 rounded border border-slate-600 outline-none flex-1">
+                             <option value="1">1 Bot (2 Pemain)</option>
+                             <option value="2">2 Bot (3 Pemain)</option>
+                             <option value="3" selected>3 Bot (4 Pemain)</option>
+                         </select>
+                     </div>
+                     <button onclick="window.app.createOfflineGame('uno')" class="w-full bg-orange-600 py-3 rounded-lg font-bold text-xs hover:bg-orange-500">MULAI UNO</button>
+                 </div>
+
+                 <!-- Default Launch (if mode not clear, usually handled by createOfflineGame logic) -->
             </div>
             
             <button onclick="window.audio.playSfx('click'); window.location.href='ludo.html?name=' + encodeURIComponent(document.getElementById('input-name').value)" class="w-full bg-slate-800 border border-slate-700 py-3 rounded-xl font-bold text-yellow-400 mb-4 hover:bg-slate-700 transition flex items-center justify-center gap-2">
@@ -671,27 +689,66 @@
                     document.getElementById('controls-online').classList.add('hidden');
                     document.getElementById('controls-offline').classList.remove('hidden');
                     document.getElementById('join-area').classList.add('hidden');
+
+                    // Show correct sub-controls based on last known interest or default
+                    // But here we are on HOME screen. We don't know if user wants Chess or Uno yet?
+                    // Actually, the HOME screen doesn't select game type yet.
+                    // Wait, `ludo.html` is separate. This `index.html` is the "Hub".
+                    // But `index.html` also contains the code for Uno and Chess (see game logic).
+                    // We need to know which game the user wants to play to show the right offline options.
+                    // The Hub usually creates a room then selects game in Lobby.
+                    // FOR OFFLINE: We should probably select Game Type FIRST or inside the "Offline Lobby".
+                    // Let's modify `createOfflineGame` to just go to Lobby, and Handle options there.
+                    // OR, display both options.
+                    document.getElementById('offline-chess-opts').classList.remove('hidden');
+                    document.getElementById('offline-uno-opts').classList.remove('hidden');
                 } else {
                     document.getElementById('controls-online').classList.remove('hidden');
                     document.getElementById('controls-offline').classList.add('hidden');
                 }
             },
 
-            createOfflineGame: () => {
+            createOfflineGame: (type) => {
                 window.state.myName = document.getElementById('input-name').value || "Player";
                 window.state.isHost = true;
-                window.state.players = [{id:'host', name:window.state.myName, ready:true}];
                 window.state.myId = 'host';
                 window.state.roomCode = 'OFFLINE';
+                window.state.players = [{id:'host', name:window.state.myName, ready:true, type:'human'}];
+
+                // Configure Players based on Type
+                if (type === 'chess_human') {
+                    window.state.players.push({id:'p2', name:'Teman', ready:true, type:'human'});
+                    window.state.gameMode = 'CHESS_STD'; // Default
+                } else if (type === 'chess_bot') {
+                    window.state.players.push({id:'bot', name:'Robot Catur', ready:true, type:'bot'});
+                    window.state.gameMode = 'CHESS_STD';
+                } else if (type === 'uno') {
+                    const botCount = parseInt(document.getElementById('uno-bot-count').value);
+                    for(let i=0; i<botCount; i++) {
+                        window.state.players.push({id:`bot${i+1}`, name:`Bot ${i+1}`, ready:true, type:'bot'});
+                    }
+                    window.state.gameMode = 'UNO_CLASSIC';
+                }
 
                 window.ui.showScreen('lobby');
-                setTimeout(() => {
-                   window.state.players.push({id:'bot1', name:'Bot Satu', ready:true});
-                   window.state.players.push({id:'bot2', name:'Bot Dua', ready:true});
-                   window.ui.updateLobby();
-                   window.utils.alert("Offline", "Bot telah bergabung otomatis. Atur mode dan mulai!");
-                }, 500);
                 window.ui.updateLobby();
+
+                // Auto-select mode in lobby if already decided, or let user change it?
+                // If Chess, hide Uno options in Lobby. If Uno, hide Chess options.
+                // For simplicity, we just let them go to lobby.
+                // But wait, the Lobby UI has a "Game Mode" selector.
+                // We should force the selector to the right group.
+                const modeSelect = document.getElementById('game-mode-select');
+                if(type.includes('chess')) {
+                    modeSelect.value = 'CHESS_STD';
+                    window.ui.toggleChessOptions();
+                } else {
+                    modeSelect.value = 'UNO_CLASSIC';
+                    window.ui.toggleChessOptions();
+                }
+
+                // Auto Start? Or wait?
+                // Let's wait so they can change specific mode (e.g. Atomic Chess or Uno Flip)
             },
 
             createRoom: () => {
@@ -1055,36 +1112,38 @@
             process: () => {
                 const s = window.state;
                 if(s.networkMode !== 'offline') return;
-                const turnP = s.players[s.game.turnIndex];
-                if(!turnP.id.startsWith('bot')) return;
 
-                if(s.gameMode.includes('UNO')) window.ai.uno(turnP.id);
-            },
-            uno: (botId) => {
-                const s = window.state.game;
-                const hand = s.hands[botId];
-                if(!hand) return;
+                // Identify turn
+                // UNO: s.game.turnIndex -> s.players[turnIndex]
+                // CHESS: s.game.chessBoards[0].tc (turn color) -> check assignment
 
-                const top = window.game.uno.getTop();
-                const curCol = s.currentColor || top.color;
-
-                let playCid = -1;
-                let playCol = 'red';
-
-                const validCards = hand.filter(cid => {
-                    const c = s.currentSide === 'light' ? s.cards[cid].l : s.cards[cid].d;
-                    return (c.color === 'black' || c.color === curCol || c.val === top.val);
-                });
-
-                if(validCards.length > 0) {
-                    playCid = validCards[0];
-                    const c = s.currentSide === 'light' ? s.cards[playCid].l : s.cards[playCid].d;
-                    if(c.color === 'black') {
-                        playCol = ['red','blue','green','yellow'][Math.floor(Math.random()*4)];
+                if(s.gameMode.includes('UNO')) {
+                    const turnP = s.players[s.game.turnIndex];
+                    if(turnP.type === 'bot') {
+                        const decision = BotAI.Uno.getMove(s.game.hands[turnP.id], window.game.uno.getTop(), s.game.currentColor, s.game.currentSide);
+                        if(decision.act === 'PLAY') window.game.process(turnP.id, 'PLAY', {cid: decision.cid, col: decision.col});
+                        else window.game.process(turnP.id, 'DRAW');
                     }
-                    window.game.process(botId, 'PLAY', {cid: playCid, col: playCol});
                 } else {
-                    window.game.process(botId, 'DRAW');
+                    // Chess
+                    const board = s.game.chessBoards[0];
+                    if(board.win) return;
+                    const turnColor = board.tc;
+
+                    // Find player with this color
+                    // assignments: { pid: {role, b, c} }
+                    const pid = Object.keys(s.game.playerAssignments).find(k => {
+                        const as = s.game.playerAssignments[k];
+                        return as.b === 0 && as.c === turnColor;
+                    });
+
+                    if(pid) {
+                        const p = s.players.find(x => x.id === pid);
+                        if(p && p.type === 'bot') {
+                            const move = BotAI.Chess.getMove(board, turnColor);
+                            if(move) window.game.process(pid, 'MOVE', move);
+                        }
+                    }
                 }
             }
         };
