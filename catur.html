@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nusantara Catur v1.0 (Dual Network)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="bot.js"></script>
+    <script src="voice.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Poppins:wght@400;600&display=swap');
+        body { font-family: 'Poppins', sans-serif; background: #0f172a; color: white; overflow: hidden; touch-action: none; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        .font-cinzel { font-family: 'Cinzel', serif; }
+
+        /* CHESS BOARD */
+        .board-container {
+            width: 100%; max-width: 450px; aspect-ratio: 1;
+            display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+            border: 4px solid #475569;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            background-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png');
+            position: relative;
+        }
+
+        .square { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem; position: relative; cursor: pointer; }
+        .sq-white { background-color: #e2e8f0; color: black; }
+        .sq-black { background-color: #475569; color: white; }
+        .sq-highlight { background-color: rgba(250, 204, 21, 0.6) !important; }
+        .sq-last { background-color: rgba(59, 130, 246, 0.5) !important; }
+
+        .piece { width: 90%; height: 90%; background-size: cover; z-index: 10; transition: transform 0.2s; pointer-events: none; }
+        .piece.dragging { opacity: 0.5; transform: scale(1.2); }
+
+        /* PIECE IMAGES (Using FontAwesome for simplicity, but images preferred for HD. Let's use unicode/FA) */
+        /* Actually, let's use SVG data URIs for true HD look */
+
+        .hint-dot { width: 15%; height: 15%; background: rgba(0,0,0,0.3); border-radius: 50%; position: absolute; pointer-events: none; }
+
+        /* UI */
+        .graveyard { display: flex; flex-wrap: wrap; gap: 2px; min-height: 30px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 4px; }
+        .gy-piece { font-size: 1.2rem; opacity: 0.7; }
+
+        /* AUDIO PLAYER STYLES */
+        #music-widget {
+            position: fixed; bottom: 80px; right: 20px; z-index: 100;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
+            padding: 8px 16px; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            max-width: 90%; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden; pointer-events: auto;
+        }
+        #music-widget.minimized {
+            width: 50px; height: 50px; padding: 0; border-radius: 50%;
+            justify-content: center; animation: spin 10s linear infinite;
+            border: 2px solid #fbbf24; background: black;
+        }
+        #music-widget.minimized > *:not(.logo-icon) { display: none; }
+        #music-widget .logo-icon { display: none; font-size: 24px; color: #fbbf24; }
+        #music-widget.minimized .logo-icon { display: block; }
+        #music-widget:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.5); opacity: 1 !important; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .marquee { overflow: hidden; white-space: nowrap; max-width: 150px; font-size: 10px; color: #fbbf24; font-weight: bold; }
+        .visualizer { display: flex; gap: 2px; height: 10px; align-items: flex-end; }
+        .visualizer div { width: 3px; background: #fbbf24; animation: eq 0.5s infinite alternate; }
+        .visualizer div:nth-child(2) { animation-delay: 0.1s; }
+        .visualizer div:nth-child(3) { animation-delay: 0.2s; }
+        @keyframes eq { 0% { height: 2px; } 100% { height: 100%; } }
+    </style>
+</head>
+<body class="bg-[url('https://images.unsplash.com/photo-1529699211952-734e80c4d42b?q=80&w=1000&auto=format&fit=crop')] bg-cover flex items-center justify-center h-screen">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+
+    <!-- HOME -->
+    <div id="screen-home" class="relative z-10 w-full max-w-md p-6 text-center">
+        <h1 class="text-5xl font-cinzel font-bold text-yellow-500 mb-2 drop-shadow-lg">CATUR</h1>
+        <p class="text-slate-400 mb-8 font-cinzel">The Royal Game</p>
+
+        <div class="glass p-6 rounded-2xl">
+             <div class="bg-black/40 p-2 rounded-xl mb-4 flex justify-between items-center">
+                <span class="text-[10px] text-slate-400 font-bold ml-2">MODE:</span>
+                <div class="flex gap-1">
+                    <button onclick="app.setNetworkMode('offline')" id="mode-offline" class="px-3 py-1 text-[10px] rounded bg-white/10 hover:bg-white/20">OFFLINE</button>
+                    <button onclick="app.setNetworkMode('peerjs')" id="mode-online" class="px-3 py-1 text-[10px] rounded bg-yellow-500 text-black font-bold">ONLINE</button>
+                </div>
+            </div>
+
+            <input type="text" id="input-name" placeholder="Nama Kamu" class="w-full bg-slate-800 p-3 rounded-lg text-center font-bold text-white mb-4 outline-none border border-slate-600 focus:border-yellow-500">
+
+            <div id="controls-online" class="grid grid-cols-2 gap-3">
+                <button onclick="app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
+                <button onclick="app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
+            </div>
+             <div id="controls-offline" class="hidden space-y-3">
+                <button onclick="app.startBotGame()" class="w-full bg-orange-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">LAWAN BOT</button>
+                <button onclick="app.startLocalGame()" class="w-full bg-slate-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">LOCAL 2 PLAYER</button>
+            </div>
+
+            <div id="join-input-area" class="hidden mt-4">
+                 <input type="text" id="input-room" placeholder="KODE ROOM" class="w-full bg-slate-800 p-3 rounded-lg text-center font-mono uppercase text-xl mb-2 border border-slate-600 text-yellow-400">
+                 <button onclick="app.joinRoom()" class="w-full bg-yellow-500 text-black py-2 rounded-lg font-bold">MASUK</button>
+            </div>
+        </div>
+        <button onclick="window.parent.postMessage('EXIT_GAME', '*')" class="mt-8 text-slate-500 hover:text-white text-xs">KEMBALI KE MENU UTAMA</button>
+    </div>
+
+    <!-- GAME -->
+    <div id="screen-game" class="hidden relative z-10 flex flex-col items-center w-full">
+        <!-- TOP BAR -->
+        <div class="w-full max-w-[450px] flex justify-between items-center mb-4 px-4 mt-4">
+             <div class="flex items-center gap-2">
+                <button onclick="window.parent.postMessage('EXIT_GAME', '*')" class="text-red-500 hover:text-white"><i class="fa-solid fa-arrow-left"></i></button>
+                <div class="w-8 h-8 rounded-full bg-slate-700 border border-white flex items-center justify-center font-bold" id="opp-avatar">OP</div>
+                <div class="text-sm font-bold" id="opp-name">Opponent</div>
+            </div>
+             <div class="flex items-center gap-2">
+                <button onclick="app.toggleVoice()" id="btn-mic" class="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-600"><i class="fa-solid fa-microphone-slash text-xs"></i></button>
+                 <div class="text-xs text-yellow-400 font-mono" id="room-display"></div>
+            </div>
+        </div>
+
+        <!-- VOICE FX PANEL -->
+        <div id="voice-fx-panel" class="hidden w-full max-w-[450px] mb-2 flex justify-center gap-2">
+             <button onclick="window.voice.setEffect('robot', !window.voice.effects.robot); this.classList.toggle('text-green-400')" class="bg-black/50 px-2 py-1 rounded text-[10px] text-white">🤖 Robot</button>
+             <button onclick="window.voice.setEffect('echo', !window.voice.effects.echo); this.classList.toggle('text-green-400')" class="bg-black/50 px-2 py-1 rounded text-[10px] text-white">🔊 Echo</button>
+        </div>
+
+        <!-- GRAVEYARD TOP -->
+        <div class="w-full max-w-[450px] graveyard mb-2" id="gy-top"></div>
+
+        <!-- BOARD -->
+        <div class="board-container" id="board">
+            <!-- Squares generated by JS -->
+        </div>
+
+        <!-- GRAVEYARD BOTTOM -->
+        <div class="w-full max-w-[450px] graveyard mt-2" id="gy-bottom"></div>
+
+        <!-- BOTTOM BAR -->
+        <div class="w-full max-w-[450px] flex justify-between items-center mt-4">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-blue-600 border border-white flex items-center justify-center font-bold" id="my-avatar">ME</div>
+                <div class="text-sm font-bold" id="my-name">You</div>
+            </div>
+            <div id="status-text" class="px-4 py-1 bg-slate-800 rounded text-xs font-bold text-slate-300">White to Move</div>
+        </div>
+    </div>
+
+    <!-- MUSIC WIDGET -->
+    <div id="music-widget" class="interactive" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()" onclick="window.audio.resetTimer()">
+        <i class="fa-solid fa-compact-disc logo-icon"></i>
+        <div class="visualizer"><div></div><div></div><div></div></div>
+        <div class="flex flex-col mr-2">
+            <div id="music-title" class="marquee">Memuat Musik...</div>
+            <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
+        </div>
+        <div class="flex gap-1">
+             <button onclick="window.audio.prev()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
+             <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
+             <button onclick="window.audio.next()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
+    </div>
+
+    <!-- MODAL MUSIC -->
+    <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
+            <button onclick="document.getElementById('modal-music').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cari Lagu</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="music-search-input" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-white border border-slate-700 outline-none" placeholder="Judul lagu / Artis...">
+                <button onclick="window.audio.search()" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+            </div>
+            <div id="music-results" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs"></div>
+        </div>
+    </div>
+
+    <!-- WIN MODAL -->
+    <div id="modal-win" class="fixed inset-0 z-[120] bg-black/95 hidden flex items-center justify-center p-4">
+        <div class="glass p-8 rounded-3xl text-center border border-yellow-500 shadow-[0_0_50px_rgba(234,179,8,0.3)]">
+            <div class="text-6xl mb-4">👑</div>
+            <h2 class="text-3xl font-black text-yellow-400 mb-2">CHECKMATE!</h2>
+            <div id="winner-name" class="text-2xl font-bold text-white mb-6">White Wins</div>
+            <button onclick="location.reload()" class="bg-blue-600 px-8 py-3 rounded-full font-bold hover:bg-blue-500 transition">MENU UTAMA</button>
+        </div>
+    </div>
+
+    <script>
+        const PEER_PREFIX = "NGH-CHESS-V1-";
+
+        // --- AUDIO MANAGER ---
+        class AudioManager {
+            constructor() {
+                this.bgm = new Audio(); this.bgm.volume = 0.3; this.bgm.onended = () => this.handleTrackEnd();
+                this.isMuted = false; this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.history = []; this.histIdx = -1;
+                this.timer = null;
+                this.playRandomIndo();
+            }
+            startTimer() { clearTimeout(this.timer); this.timer = setTimeout(() => document.getElementById('music-widget').classList.add('minimized'), 5000); }
+            resetTimer() { clearTimeout(this.timer); document.getElementById('music-widget').classList.remove('minimized'); }
+
+            playSfx(type) {
+                if(this.isMuted) return; const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination);
+                if(type === 'move') { o.frequency.value=600; g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime+0.1); o.start(); o.stop(this.ctx.currentTime+0.1); }
+                else if (type === 'capture') { o.type='square'; o.frequency.value=300; g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime+0.15); o.start(); o.stop(this.ctx.currentTime+0.15); }
+                else if (type === 'check') { o.type='sawtooth'; o.frequency.setValueAtTime(800, this.ctx.currentTime); o.frequency.linearRampToValueAtTime(400, this.ctx.currentTime+0.3); g.gain.linearRampToValueAtTime(0, this.ctx.currentTime+0.5); o.start(); o.stop(this.ctx.currentTime+0.5); }
+            }
+            playMusic(url, title, artist, addToHist=true) {
+                this.bgm.src = url; this.bgm.play().catch(e => {});
+                this.updateUI(title, artist); this.startTimer();
+                if(addToHist && (this.history.length === 0 || this.history[this.history.length-1].url !== url)) { this.history.push({url, title, artist}); this.histIdx = this.history.length - 1; }
+            }
+            toggleMute() { this.isMuted = !this.isMuted; this.bgm.muted = this.isMuted; document.getElementById('btn-mute').innerHTML = this.isMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>'; }
+            async playRandomIndo() { const terms = ['Indonesia Pop', 'Classical Piano', 'Chess Focus']; const term = terms[Math.floor(Math.random()*terms.length)]; this.fetchAndPlay(term, true); }
+            async fetchAndPlay(term, random=false) { try { const offset = random ? Math.floor(Math.random() * 50) : 0; const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&limit=1&offset=${offset}&media=music&country=ID`); const data = await res.json(); if(data.results[0]) this.syncAndPlay(data.results[0].previewUrl, data.results[0].trackName, data.results[0].artistName); } catch(e) {} }
+            syncAndPlay(url, title, artist) { if(state.myIndex === 0) app.send({type: 'MUSIC_SYNC', url, title, artist}); this.playMusic(url, title, artist); }
+            handleTrackEnd() { if(state.myIndex === 0) this.next(); }
+            next() { if(state.myIndex !== 0) return; if(this.histIdx < this.history.length - 1) { this.histIdx++; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } else { this.playRandomIndo(); } }
+            prev() { if(state.myIndex !== 0) return; if(this.histIdx > 0) { this.histIdx--; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } }
+            openSearch() { document.getElementById('modal-music').classList.remove('hidden'); }
+            async search() { const q = document.getElementById('music-search-input').value; if(!q) return; const list = document.getElementById('music-results'); list.innerHTML = 'Searching...'; try { const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=10&media=music&country=ID`); const data = await res.json(); list.innerHTML = ''; data.results.forEach(t => { const div = document.createElement('div'); div.className = "flex justify-between items-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer"; div.innerHTML = `<div class="truncate w-48"><div class="font-bold text-yellow-400">${t.trackName}</div><div class="text-[10px] text-slate-400">${t.artistName}</div></div><button class="text-xs bg-blue-600 px-2 py-1 rounded"><i class="fa-solid fa-play"></i></button>`; div.onclick = () => { if(state.myIndex === 0) this.syncAndPlay(t.previewUrl, t.trackName, t.artistName); else app.sendHost({type: 'REQ_MUSIC', url: t.previewUrl, title: t.trackName, artist: t.artistName}); document.getElementById('modal-music').classList.add('hidden'); }; list.appendChild(div); }); } catch(e) { list.innerHTML = 'Error.'; } }
+            updateUI(t, a) { document.getElementById('music-title').innerText = t; document.getElementById('music-artist').innerText = a; }
+        }
+
+        // --- GAME LOGIC ---
+        const state = {
+            networkMode: 'peerjs',
+            myIndex: -1, // 0: White, 1: Black
+            mode: 'p2p', // p2p, bot, local
+            game: null, // Chess.js instance
+            board: [],
+            selected: null
+        };
+        window.game = state; // Expose for Bot
+
+        const pieces = {
+            'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
+            'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔'
+        };
+
+        const ui = {
+            initBoard: () => {
+                const con = document.getElementById('board');
+                con.innerHTML = '';
+                for(let r=0; r<8; r++) {
+                    for(let c=0; c<8; c++) {
+                        const div = document.createElement('div');
+                        const isWhite = (r+c)%2===0;
+                        div.className = `square ${isWhite ? 'sq-white' : 'sq-black'}`;
+                        div.id = `sq-${r}-${c}`;
+                        div.onclick = () => game.click(r, c);
+                        con.appendChild(div);
+                    }
+                }
+            },
+            render: () => {
+                const fen = state.game.fen();
+                const board = state.game.board(); // 8x8 array of {type, color} or null
+
+                // Clear highlights
+                document.querySelectorAll('.square').forEach(s => {
+                    s.innerHTML = '';
+                    s.classList.remove('sq-highlight', 'sq-last');
+                });
+
+                // Place pieces
+                for(let r=0; r<8; r++) {
+                    for(let c=0; c<8; c++) {
+                        const p = board[r][c];
+                        if(p) {
+                            const sym = p.color === 'w' ? pieces[p.type.toUpperCase()] : pieces[p.type];
+                            const el = document.createElement('div');
+                            el.className = 'piece flex items-center justify-center';
+                            el.innerText = sym;
+                            el.style.color = p.color === 'w' ? 'white' : 'black';
+                            if(p.color === 'w') el.style.textShadow = '0 2px 2px black';
+                            else el.style.textShadow = '0 2px 2px white';
+
+                            // Rotate for Black player view
+                            if(state.myIndex === 1 && state.mode === 'p2p') {
+                                el.style.transform = 'rotate(180deg)';
+                            }
+
+                            document.getElementById(`sq-${r}-${c}`).appendChild(el);
+                        }
+                    }
+                }
+
+                // Status
+                const turn = state.game.turn() === 'w' ? 'White' : 'Black';
+                document.getElementById('status-text').innerText = state.game.in_checkmate() ? `CHECKMATE! ${turn==='White'?'Black':'White'} Wins` : `${turn} to Move`;
+                if(state.game.in_check()) window.audio.playSfx('check');
+                if(state.game.in_checkmate()) document.getElementById('modal-win').classList.remove('hidden');
+
+                // Rotate board for black
+                const boardEl = document.getElementById('board');
+                if(state.myIndex === 1 && state.mode === 'p2p') boardEl.style.transform = 'rotate(180deg)';
+                else boardEl.style.transform = 'none';
+            },
+            highlightMoves: (moves) => {
+                moves.forEach(m => {
+                    // Extract to/from from SAN or verbose
+                    // Use verbose moves for coords
+                });
+            }
+        };
+
+        const game = {
+            init: () => {
+                state.game = new Chess();
+                ui.initBoard();
+                ui.render();
+            },
+            click: (r, c) => {
+                // If wrong turn (and not local)
+                if(state.mode === 'p2p' &&
+                   ((state.game.turn() === 'w' && state.myIndex !== 0) ||
+                    (state.game.turn() === 'b' && state.myIndex !== 1))) return;
+
+                // If Bot turn
+                if(state.mode === 'bot' && state.game.turn() === 'b') return;
+
+                const alg = String.fromCharCode(97 + c) + (8 - r); // 'a1', 'e4'
+
+                // Try move
+                if(state.selected) {
+                    const move = state.game.move({ from: state.selected, to: alg, promotion: 'q' });
+                    if(move) {
+                        state.selected = null;
+                        ui.render();
+                        window.audio.playSfx(move.captured ? 'capture' : 'move');
+                        app.send({type: 'MOVE', fen: state.game.fen()});
+                        if(state.mode === 'bot') setTimeout(game.botMove, 1000);
+                    } else {
+                        // Reselect?
+                        const p = state.game.get(alg);
+                        if(p && p.color === state.game.turn()) {
+                            state.selected = alg;
+                            // Highlight (Simplified: just clear old, set new visual state logic needed)
+                        } else {
+                            state.selected = null;
+                        }
+                    }
+                } else {
+                    const p = state.game.get(alg);
+                    if(p && p.color === state.game.turn()) {
+                        state.selected = alg;
+                        // Show moves?
+                        const moves = state.game.moves({square: alg, verbose: true});
+                        moves.forEach(m => {
+                            const [tf, tr] = [m.to.charCodeAt(0)-97, 8-parseInt(m.to[1])];
+                            document.getElementById(`sq-${tr}-${tf}`).classList.add('sq-highlight');
+                        });
+                    }
+                }
+            },
+            botMove: () => {
+                const move = BotAI.Chess.getMove();
+                if(move) {
+                    state.game.move(move);
+                    ui.render();
+                    window.audio.playSfx(move.captured ? 'capture' : 'move');
+                    if(state.game.in_check()) window.audio.playSfx('check');
+                    if(state.game.in_checkmate()) document.getElementById('modal-win').classList.remove('hidden');
+                }
+            }
+        };
+
+        const app = {
+            setNetworkMode: (m) => {
+                state.networkMode = m;
+                 if(m==='offline') {
+                    document.getElementById('controls-online').classList.add('hidden');
+                    document.getElementById('controls-offline').classList.remove('hidden');
+                } else {
+                    document.getElementById('controls-online').classList.remove('hidden');
+                    document.getElementById('controls-offline').classList.add('hidden');
+                }
+            },
+            startBotGame: () => {
+                state.mode = 'bot';
+                state.myIndex = 0;
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.remove('hidden');
+                game.init();
+            },
+            startLocalGame: () => {
+                state.mode = 'local';
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.remove('hidden');
+                game.init();
+            },
+            createRoom: () => {
+                state.mode = 'p2p';
+                state.myIndex = 0;
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.remove('hidden');
+                game.init();
+                initPeerJS(PEER_PREFIX + Math.floor(Math.random()*9000));
+            },
+            joinRoomPrompt: () => { document.getElementById('join-input-area').classList.remove('hidden'); },
+            joinRoom: () => {
+                state.mode = 'p2p';
+                state.myIndex = 1;
+                const code = document.getElementById('input-room').value;
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.remove('hidden');
+                game.init();
+                initPeerJS(null, PEER_PREFIX + code);
+            },
+            send: (d) => {
+                if(state.mode !== 'p2p') return;
+                if(state.myIndex === 0) app.broadcast(d);
+                else if(peerInstance && peerInstance.conn) peerInstance.conn.send(d);
+            },
+            broadcast: (d) => {
+                if(peerInstance) Object.values(connections).forEach(c => c.send(d));
+            },
+            handleData: (d) => {
+                if(d.type === 'MOVE') {
+                    state.game.load(d.fen);
+                    ui.render();
+                    window.audio.playSfx('move');
+                } else if(d.type === 'MUSIC_SYNC') {
+                    window.audio.playMusic(d.url, d.title, d.artist);
+                }
+            }
+        };
+
+        // --- PEERJS ---
+        let peerInstance = null;
+        let connections = {};
+        const initPeerJS = (id, target) => {
+            const peer = new Peer(id, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+            peerInstance = peer;
+            peer.on('open', (pid) => {
+                if(id) {
+                    document.getElementById('room-display').innerText = "ROOM: " + pid.replace(PEER_PREFIX, '');
+                } else {
+                    const conn = peer.connect(target);
+                    peer.conn = conn;
+                    conn.on('open', () => {
+                         conn.send({type: 'JOIN'});
+                         document.getElementById('room-display').innerText = "ROOM: " + target.replace(PEER_PREFIX, '');
+                    });
+                    conn.on('data', app.handleData);
+                }
+            });
+            peer.on('connection', (c) => {
+                c.on('data', (d) => {
+                     app.handleData(d);
+                     if(state.myIndex === 0) app.broadcast(d); // Relay
+                });
+                connections[c.peer] = c;
+            });
+        };
+
+        window.audio = new AudioManager();
+        window.voice = new VoiceManager();
+
+        app.toggleVoice = async () => {
+             const btn = document.getElementById('btn-mic');
+             const fx = document.getElementById('voice-fx-panel');
+             if(btn.classList.contains('bg-red-500')) {
+                 window.voice.stop();
+                 btn.classList.remove('bg-red-500', 'text-white');
+                 btn.classList.add('bg-slate-700', 'text-slate-400');
+                 btn.innerHTML = '<i class="fa-solid fa-microphone-slash text-xs"></i>';
+                 fx.classList.add('hidden');
+             } else {
+                 const stream = await window.voice.getStream();
+                 if(stream) {
+                     btn.classList.add('bg-red-500', 'text-white');
+                     btn.classList.remove('bg-slate-700', 'text-slate-400');
+                     btn.innerHTML = '<i class="fa-solid fa-microphone text-xs"></i>';
+                     fx.classList.remove('hidden');
+
+                     if(peerInstance) {
+                         if(state.myIndex === 0) Object.values(connections).forEach(c => peerInstance.call(c.peer, stream));
+                         else if(peerInstance.conn) peerInstance.call(peerInstance.conn.peer, stream);
+                     }
+                 }
+             }
+        };
+    </script>
+</body>
+</html>

@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="bot.js"></script>
+    <script src="voice.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <style>
@@ -160,7 +161,7 @@
                 </div>
             </div>
         </div>
-        <button onclick="window.location.href='index.html'" class="text-xs text-slate-500 hover:text-white transition">KEMBALI KE MENU UTAMA</button>
+        <button onclick="window.parent.postMessage('EXIT_GAME', '*')" class="text-xs text-slate-500 hover:text-white transition">KEMBALI KE MENU UTAMA</button>
     </div>
 
     <!-- GAME SCREEN -->
@@ -168,6 +169,7 @@
         <!-- HEADER -->
         <div class="p-2 flex justify-between items-center glass shrink-0" id="game-header">
             <div class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                 <button onclick="window.parent.postMessage('EXIT_GAME', '*')" class="text-red-500 hover:text-white"><i class="fa-solid fa-arrow-left"></i></button>
                 <span id="offline-badge" class="hidden bg-orange-600 text-white px-2 py-0.5 rounded text-[10px]">OFFLINE</span>
                 Room: <span id="room-code" class="text-yellow-400 font-mono select-all">...</span>
             </div>
@@ -251,9 +253,15 @@
     </div>
 
     <!-- VOICE BUTTON (Fixed Bottom Left) -->
-    <button id="btn-mic" onclick="app.toggleVoice()" class="fixed bottom-5 left-5 z-[100] w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
-        <i class="fa-solid fa-microphone-slash"></i>
-    </button>
+    <div class="fixed bottom-5 left-5 z-[100] flex flex-col gap-2">
+        <button id="btn-mic" onclick="app.toggleVoice()" class="w-10 h-10 rounded-full bg-slate-800 border border-white/20 text-slate-400 shadow-xl flex items-center justify-center hover:bg-slate-700 active:scale-95 transition hidden animate__animated animate__fadeInLeft">
+            <i class="fa-solid fa-microphone-slash"></i>
+        </button>
+        <div id="voice-fx-panel" class="hidden bg-black/80 p-2 rounded flex-col gap-1">
+             <button onclick="window.voice.setEffect('robot', !window.voice.effects.robot); this.classList.toggle('text-green-400')" class="text-[10px] text-white">🤖</button>
+             <button onclick="window.voice.setEffect('echo', !window.voice.effects.echo); this.classList.toggle('text-green-400')" class="text-[10px] text-white">🔊</button>
+        </div>
+    </div>
     <div id="voice-streams" class="hidden"></div>
 
     <!-- MUSIC SEARCH MODAL -->
@@ -708,20 +716,25 @@
             },
             toggleVoice: async () => {
                 const btn = document.getElementById('btn-mic');
+                const fx = document.getElementById('voice-fx-panel');
                 const isAct = btn.classList.contains('text-red-500');
                 if(isAct) {
-                    if(window.myStream) window.myStream.getTracks().forEach(t => t.stop());
+                    window.voice.stop();
                     window.myStream = null;
                     btn.classList.remove('text-red-500', 'border-red-500');
                     btn.classList.add('text-slate-400');
                     btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+                    fx.classList.add('hidden');
                 } else {
                     try {
-                        const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+                        const stream = await window.voice.getStream();
+                        if(!stream) return;
+
                         window.myStream = stream;
                         btn.classList.add('text-red-500', 'border-red-500');
                         btn.classList.remove('text-slate-400');
                         btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+                        fx.classList.remove('hidden');
 
                         if(state.networkMode === 'peerjs' && peerInstance) {
                              if(state.myIndex === 0) {
@@ -814,6 +827,7 @@
         };
 
         window.audio = new AudioManager();
+        window.voice = new VoiceManager();
         app.init();
         game.init();
 

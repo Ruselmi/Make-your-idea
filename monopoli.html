@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nusantara Monopoly v1.0 (Dual Network)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="bot.js"></script>
+    <script src="voice.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Oswald:wght@500&display=swap');
+        body { font-family: 'Poppins', sans-serif; background: #0f172a; color: white; overflow: hidden; touch-action: none; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+
+        /* MONOPOLY BOARD */
+        .board-container {
+            width: 100%; max-width: 600px; aspect-ratio: 1;
+            position: relative; background: #cde6d0;
+            border: 2px solid #333; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: grid; grid-template-columns: repeat(11, 1fr); grid-template-rows: repeat(11, 1fr);
+            font-family: 'Oswald', sans-serif; color: black; font-size: 8px;
+        }
+
+        .space { border: 1px solid rgba(0,0,0,0.2); position: relative; display: flex; flex-direction: column; align-items: center; justify-content: space-between; text-align: center; background: #cde6d0; overflow: hidden; }
+        .space-corner { grid-row: span 1; grid-column: span 1; display: flex; align-items: center; justify-content: center; background: white; z-index: 2; }
+        .space-h { flex-direction: column; } /* Top/Bottom rows */
+        .space-v { flex-direction: row; }    /* Left/Right cols */
+
+        .color-bar { width: 100%; height: 20%; border-bottom: 1px solid rgba(0,0,0,0.2); }
+        .space-bottom .color-bar { order: -1; } /* Top color bar */
+        .space-top .color-bar { order: 1; border-top: 1px solid rgba(0,0,0,0.2); border-bottom: none; }
+        .space-left .color-bar { width: 20%; height: 100%; order: 1; border-left: 1px solid rgba(0,0,0,0.2); border-bottom: none; }
+        .space-right .color-bar { width: 20%; height: 100%; order: -1; border-right: 1px solid rgba(0,0,0,0.2); border-bottom: none; }
+
+        .center-logo { grid-column: 2 / 11; grid-row: 2 / 11; background: #cde6d0; display: flex; flex-direction: column; align-items: center; justify-content: center; transform: rotate(-45deg); opacity: 0.8; pointer-events: none; }
+
+        /* COLORS */
+        .bg-brown { background-color: #8B4513; }
+        .bg-lblue { background-color: #87CEEB; }
+        .bg-pink { background-color: #FF69B4; }
+        .bg-orange { background-color: #FFA500; }
+        .bg-red { background-color: #FF0000; }
+        .bg-yellow { background-color: #FFD700; }
+        .bg-green { background-color: #008000; }
+        .bg-blue { background-color: #0000FF; }
+
+        /* TOKEN */
+        .token {
+            width: 12px; height: 12px; border-radius: 50%;
+            border: 1px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            position: absolute; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 20;
+        }
+
+        .house { width: 6px; height: 6px; background: #22c55e; border: 1px solid white; position: absolute; }
+        .hotel { width: 8px; height: 8px; background: #ef4444; border: 1px solid white; position: absolute; }
+
+        .dice-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); z-index: 50; display: flex; gap: 10px; }
+        .die { width: 40px; height: 40px; background: white; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+        .hidden { display: none !important; }
+
+        /* UI OVERLAY */
+        #ui-layer { position: absolute; inset: 0; pointer-events: none; z-index: 60; display: flex; flex-direction: column; justify-content: space-between; padding: 10px; }
+        .interactive { pointer-events: auto; }
+
+        .player-card { background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.2); padding: 8px; border-radius: 8px; width: 100px; font-size: 10px; margin-bottom: 4px; transition: all 0.3s; }
+        .player-card.active { border-color: #fbbf24; background: rgba(251,191,36,0.2); transform: scale(1.05); }
+
+        /* PROPERTY CARD MODAL */
+        .prop-card-lg { width: 200px; aspect-ratio: 2/3; background: white; color: black; border: 2px solid black; padding: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .prop-header { width: 100%; height: 40px; border: 1px solid black; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; text-shadow: 0 0 2px black; }
+
+         /* AUDIO PLAYER STYLES */
+        #music-widget {
+            position: fixed; bottom: 80px; right: 20px; z-index: 100;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 30px;
+            padding: 8px 16px; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            max-width: 90%; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden; pointer-events: auto;
+        }
+        #music-widget.minimized {
+            width: 50px; height: 50px; padding: 0; border-radius: 50%;
+            justify-content: center; animation: spin 10s linear infinite;
+            border: 2px solid #fbbf24; background: black;
+        }
+        #music-widget.minimized > *:not(.logo-icon) { display: none; }
+        #music-widget .logo-icon { display: none; font-size: 24px; color: #fbbf24; }
+        #music-widget.minimized .logo-icon { display: block; }
+        #music-widget:hover { transform: scale(1.05); border-color: rgba(255,255,255,0.5); opacity: 1 !important; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .marquee { overflow: hidden; white-space: nowrap; max-width: 150px; font-size: 10px; color: #fbbf24; font-weight: bold; }
+        .visualizer { display: flex; gap: 2px; height: 10px; align-items: flex-end; }
+        .visualizer div { width: 3px; background: #fbbf24; animation: eq 0.5s infinite alternate; }
+        .visualizer div:nth-child(2) { animation-delay: 0.1s; }
+        .visualizer div:nth-child(3) { animation-delay: 0.2s; }
+        @keyframes eq { 0% { height: 2px; } 100% { height: 100%; } }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center h-screen w-screen bg-[url('https://images.unsplash.com/photo-1635329864273-d5d144517904?q=80&w=1000&auto=format&fit=crop')] bg-cover">
+    <div class="absolute inset-0 bg-black/80 backdrop-blur-sm"></div>
+
+    <!-- HOME -->
+    <div id="screen-home" class="relative z-10 text-center w-full max-w-md p-6">
+        <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-blue-500 mb-2" style="font-family: 'Oswald'">MONOPOLY HD</h1>
+        <p class="text-slate-300 mb-6 text-sm">Property Trading Game</p>
+
+        <div class="glass p-6 rounded-2xl mb-4">
+             <div class="bg-black/40 p-2 rounded-xl mb-4 flex justify-between items-center">
+                <span class="text-[10px] text-slate-400 font-bold ml-2">MODE:</span>
+                <div class="flex gap-1">
+                    <button onclick="app.setNetworkMode('offline')" id="mode-offline" class="px-3 py-1 text-[10px] rounded bg-white/10 hover:bg-white/20">OFFLINE</button>
+                    <button onclick="app.setNetworkMode('peerjs')" id="mode-online" class="px-3 py-1 text-[10px] rounded bg-yellow-500 text-black font-bold">ONLINE</button>
+                </div>
+            </div>
+
+            <input type="text" id="input-name" placeholder="Nama Kamu" class="w-full bg-slate-800 p-3 rounded-lg text-center font-bold text-white mb-4 outline-none border border-slate-600 focus:border-green-400">
+
+            <div id="controls-online" class="grid grid-cols-2 gap-3">
+                <button onclick="app.createRoom()" class="bg-blue-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">BUAT ROOM</button>
+                <button onclick="app.joinRoomPrompt()" class="bg-green-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">GABUNG</button>
+            </div>
+             <div id="controls-offline" class="hidden space-y-3">
+                <select id="offline-player-count" class="w-full bg-slate-800 p-3 rounded-lg border border-slate-600">
+                    <option value="2">2 Pemain</option>
+                    <option value="3">3 Pemain</option>
+                    <option value="4">4 Pemain</option>
+                </select>
+                <button onclick="app.createOfflineGame()" class="w-full bg-orange-600 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">MULAI LOKAL / BOT</button>
+            </div>
+
+            <div id="join-input-area" class="hidden mt-4">
+                 <input type="text" id="input-room" placeholder="KODE ROOM" class="w-full bg-slate-800 p-3 rounded-lg text-center font-mono uppercase text-xl mb-2 border border-slate-600 text-yellow-400">
+                 <button onclick="app.joinRoom()" class="w-full bg-yellow-500 text-black py-2 rounded-lg font-bold">MASUK</button>
+            </div>
+        </div>
+        <button onclick="window.parent.postMessage('EXIT_GAME', '*')" class="text-xs text-slate-500 hover:text-white transition">KEMBALI</button>
+    </div>
+
+    <!-- GAME -->
+    <div id="screen-game" class="relative z-10 w-full h-full hidden flex flex-col items-center justify-center bg-slate-900">
+        <!-- UI OVERLAY -->
+        <div id="ui-layer" class="w-full max-w-[600px] h-full pointer-events-none">
+            <!-- TOP BAR -->
+            <div class="flex justify-between items-start pointer-events-auto p-2">
+                 <div class="glass p-2 rounded-xl text-xs font-bold text-white flex gap-2 items-center">
+                     <button onclick="window.parent.postMessage('EXIT_GAME', '*')" class="mr-2 text-red-500 hover:text-white"><i class="fa-solid fa-arrow-left"></i></button>
+                     <span id="game-status">Menunggu...</span>
+                     <span id="room-display" class="text-yellow-400 font-mono"></span>
+                 </div>
+                 <div class="flex flex-col items-end gap-2">
+                     <div class="flex gap-2">
+                        <button onclick="app.toggleVoice()" id="btn-mic" class="bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-600"><i class="fa-solid fa-microphone-slash"></i></button>
+                        <button onclick="ui.showInfo()" class="bg-slate-700 w-8 h-8 rounded-full flex items-center justify-center text-white"><i class="fa-solid fa-question"></i></button>
+                     </div>
+                     <div id="voice-fx-panel" class="hidden bg-black/80 p-1 rounded flex gap-1">
+                        <button onclick="window.voice.setEffect('robot', !window.voice.effects.robot); this.classList.toggle('text-green-400')" class="text-[8px] text-white p-1">🤖</button>
+                        <button onclick="window.voice.setEffect('echo', !window.voice.effects.echo); this.classList.toggle('text-green-400')" class="text-[8px] text-white p-1">🔊</button>
+                    </div>
+                 </div>
+            </div>
+
+            <!-- PLAYER CARDS (Left Side) -->
+            <div id="player-list" class="absolute left-2 top-16 flex flex-col pointer-events-auto"></div>
+
+            <!-- LOGS (Bottom Left) -->
+            <div id="game-log" class="absolute left-2 bottom-20 w-48 h-32 glass rounded-xl p-2 text-[10px] overflow-y-auto pointer-events-auto font-mono text-slate-300">
+                <div class="text-yellow-400 font-bold border-b border-white/10 mb-1">Game Log</div>
+            </div>
+
+            <!-- CONTROLS (Bottom Center) -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 pointer-events-auto">
+                 <button id="btn-roll" onclick="game.roll()" class="bg-gradient-to-r from-red-500 to-orange-500 px-6 py-3 rounded-xl font-black text-white shadow-xl hover:scale-105 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed">ROLL DADU</button>
+                 <button id="btn-end" onclick="game.endTurn()" class="hidden bg-slate-700 px-6 py-3 rounded-xl font-bold text-white border border-white/20 hover:bg-slate-600">SELESAI</button>
+                 <button id="btn-buy" onclick="game.buyProp()" class="hidden bg-green-600 px-6 py-3 rounded-xl font-bold text-white shadow-xl animate-bounce">BELI ($<span id="buy-price">0</span>)</button>
+            </div>
+        </div>
+
+        <div class="board-container bg-[#cde6d0]">
+            <!-- CENTER DECO -->
+            <div class="center-logo">
+                <h1 class="text-6xl font-black tracking-tighter opacity-20">MONOPOLY</h1>
+                <div class="text-4xl font-bold opacity-10">NUSANTARA</div>
+            </div>
+
+            <!-- DICE AREA -->
+            <div class="dice-area">
+                <div id="die-1" class="die">1</div>
+                <div id="die-2" class="die">1</div>
+            </div>
+
+            <!-- BOARD CELLS (Generated JS) -->
+        </div>
+    </div>
+
+    <!-- MODAL PROPERTY -->
+    <div id="modal-prop" class="fixed inset-0 z-[80] bg-black/80 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="prop-card-lg shadow-2xl animate__animated animate__zoomIn">
+            <div id="modal-prop-header" class="prop-header bg-blue-600">TITLE</div>
+            <div class="text-xs mb-2">HARGA: $<span id="modal-prop-price">200</span></div>
+            <div class="text-[10px] text-left w-full space-y-1">
+                <div class="flex justify-between"><span>Sewa:</span> <span>$<span id="modal-prop-rent">20</span></span></div>
+                <div class="flex justify-between"><span>Dengan 1 Rumah:</span> <span>$<span id="modal-prop-h1">100</span></span></div>
+                <div class="flex justify-between"><span>Dengan Hotel:</span> <span>$<span id="modal-prop-ht">500</span></span></div>
+            </div>
+            <button onclick="document.getElementById('modal-prop').classList.add('hidden')" class="mt-auto w-full bg-slate-800 text-white py-2 text-xs font-bold">TUTUP</button>
+        </div>
+    </div>
+
+    <!-- MUSIC WIDGET -->
+    <div id="music-widget" class="interactive" onmouseenter="window.audio.resetTimer()" onmouseleave="window.audio.startTimer()" onclick="window.audio.resetTimer()">
+        <i class="fa-solid fa-compact-disc logo-icon"></i>
+        <div class="visualizer"><div></div><div></div><div></div></div>
+        <div class="flex flex-col mr-2">
+            <div id="music-title" class="marquee">Memuat Musik...</div>
+            <div id="music-artist" class="text-[8px] text-slate-400">iTunes Radio</div>
+        </div>
+        <div class="flex gap-1">
+             <button onclick="window.audio.prev()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-backward-step"></i></button>
+             <button onclick="window.audio.toggleMute()" id="btn-mute" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-volume-high"></i></button>
+             <button onclick="window.audio.next()" class="text-slate-400 hover:text-white text-[10px] w-5 h-5 bg-white/5 rounded-full"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+        <button onclick="window.audio.openSearch()" class="text-slate-400 hover:text-yellow-400 text-xs ml-2"><i class="fa-solid fa-search"></i></button>
+    </div>
+
+    <!-- MUSIC SEARCH MODAL -->
+    <div id="modal-music" class="fixed inset-0 z-[110] bg-black/90 hidden flex items-center justify-center p-4 backdrop-blur-md animate__animated animate__fadeIn">
+        <div class="glass p-6 rounded-3xl w-full max-w-sm max-h-[80vh] flex flex-col relative">
+            <button onclick="document.getElementById('modal-music').classList.add('hidden')" class="absolute top-4 right-4 text-white/50 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-bold text-yellow-400 mb-4 border-b border-white/10 pb-2">Cari Lagu</h2>
+            <div class="flex gap-2 mb-4">
+                <input type="text" id="music-search-input" class="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-xs text-white border border-slate-700 outline-none" placeholder="Judul lagu / Artis...">
+                <button onclick="window.audio.search()" class="bg-blue-600 px-4 rounded-lg text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+            </div>
+            <div id="music-results" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs"></div>
+        </div>
+    </div>
+
+    <!-- MODAL WIN -->
+    <div id="modal-win" class="fixed inset-0 z-[90] bg-black/95 hidden flex items-center justify-center p-4">
+        <div class="glass p-8 rounded-3xl text-center border border-yellow-500 shadow-[0_0_50px_rgba(234,179,8,0.3)]">
+            <div class="text-6xl mb-4">👑</div>
+            <h2 class="text-3xl font-black text-yellow-400 mb-2">PEMENANG!</h2>
+            <div id="winner-name" class="text-2xl font-bold text-white mb-6">Player Name</div>
+            <button onclick="location.reload()" class="bg-blue-600 px-8 py-3 rounded-full font-bold hover:bg-blue-500 transition">MENU UTAMA</button>
+        </div>
+    </div>
+
+    <script>
+        const PEER_PREFIX = "NGH-MONO-V1-";
+
+        // --- DATA ---
+        const SPACES = [
+            { name: "GO", type: "go", price: 0 },
+            { name: "Mediteranean", type: "prop", price: 60, color: "bg-brown", rent: 2, group: 0 },
+            { name: "Chest", type: "chest", price: 0 },
+            { name: "Baltic Ave", type: "prop", price: 60, color: "bg-brown", rent: 4, group: 0 },
+            { name: "Income Tax", type: "tax", price: 0 },
+            { name: "Reading RR", type: "rr", price: 200, color: "bg-black", rent: 25, group: 10 },
+            { name: "Oriental Ave", type: "prop", price: 100, color: "bg-lblue", rent: 6, group: 1 },
+            { name: "Chance", type: "chance", price: 0 },
+            { name: "Vermont Ave", type: "prop", price: 100, color: "bg-lblue", rent: 6, group: 1 },
+            { name: "Connecticut", type: "prop", price: 120, color: "bg-lblue", rent: 8, group: 1 },
+            { name: "Jail", type: "jail", price: 0 },
+            { name: "St. Charles", type: "prop", price: 140, color: "bg-pink", rent: 10, group: 2 },
+            { name: "Electric Co", type: "util", price: 150, color: "bg-slate-400", rent: 0, group: 11 },
+            { name: "States Ave", type: "prop", price: 140, color: "bg-pink", rent: 10, group: 2 },
+            { name: "Virginia Ave", type: "prop", price: 160, color: "bg-pink", rent: 12, group: 2 },
+            { name: "Penn RR", type: "rr", price: 200, color: "bg-black", rent: 25, group: 10 },
+            { name: "St. James", type: "prop", price: 180, color: "bg-orange", rent: 14, group: 3 },
+            { name: "Chest", type: "chest", price: 0 },
+            { name: "Tennessee", type: "prop", price: 180, color: "bg-orange", rent: 14, group: 3 },
+            { name: "New York", type: "prop", price: 200, color: "bg-orange", rent: 16, group: 3 },
+            { name: "Free Parking", type: "parking", price: 0 },
+            { name: "Kentucky", type: "prop", price: 220, color: "bg-red", rent: 18, group: 4 },
+            { name: "Chance", type: "chance", price: 0 },
+            { name: "Indiana", type: "prop", price: 220, color: "bg-red", rent: 18, group: 4 },
+            { name: "Illinois", type: "prop", price: 240, color: "bg-red", rent: 20, group: 4 },
+            { name: "B&O RR", type: "rr", price: 200, color: "bg-black", rent: 25, group: 10 },
+            { name: "Atlantic", type: "prop", price: 260, color: "bg-yellow", rent: 22, group: 5 },
+            { name: "Ventnor", type: "prop", price: 260, color: "bg-yellow", rent: 22, group: 5 },
+            { name: "Water Works", type: "util", price: 150, color: "bg-slate-400", rent: 0, group: 11 },
+            { name: "Marvin Gdn", type: "prop", price: 280, color: "bg-yellow", rent: 24, group: 5 },
+            { name: "Go To Jail", type: "gotojail", price: 0 },
+            { name: "Pacific Ave", type: "prop", price: 300, color: "bg-green", rent: 26, group: 6 },
+            { name: "No. Carolina", type: "prop", price: 300, color: "bg-green", rent: 26, group: 6 },
+            { name: "Chest", type: "chest", price: 0 },
+            { name: "Pennsylvania", type: "prop", price: 320, color: "bg-green", rent: 28, group: 6 },
+            { name: "Short Line", type: "rr", price: 200, color: "bg-black", rent: 25, group: 10 },
+            { name: "Chance", type: "chance", price: 0 },
+            { name: "Park Place", type: "prop", price: 350, color: "bg-blue", rent: 35, group: 7 },
+            { name: "Luxury Tax", type: "tax", price: 0 },
+            { name: "Boardwalk", type: "prop", price: 400, color: "bg-blue", rent: 50, group: 7 }
+        ];
+
+        // --- AUDIO MANAGER ---
+        class AudioManager {
+            constructor() {
+                this.bgm = new Audio(); this.bgm.volume = 0.3; this.bgm.onended = () => this.handleTrackEnd();
+                this.isMuted = false; this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.history = []; this.histIdx = -1;
+                this.timer = null;
+                this.playRandomIndo();
+            }
+            startTimer() { clearTimeout(this.timer); this.timer = setTimeout(() => document.getElementById('music-widget').classList.add('minimized'), 5000); }
+            resetTimer() { clearTimeout(this.timer); document.getElementById('music-widget').classList.remove('minimized'); }
+
+            playSfx(type) {
+                if(this.isMuted) return; const o = this.ctx.createOscillator(); const g = this.ctx.createGain(); o.connect(g); g.connect(this.ctx.destination);
+                if(type === 'click') { o.type = 'sine'; o.frequency.value = 800; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.1); o.start(); o.stop(this.ctx.currentTime + 0.1); }
+                else if (type === 'dice') { o.type = 'square'; o.frequency.value = 400; g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.2); o.start(); o.stop(this.ctx.currentTime + 0.2); }
+                else if (type === 'cash') { o.type = 'sine'; o.frequency.setValueAtTime(800, this.ctx.currentTime); o.frequency.setValueAtTime(1200, this.ctx.currentTime + 0.1); g.gain.setValueAtTime(0.1, this.ctx.currentTime); g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.3); o.start(); o.stop(this.ctx.currentTime + 0.3); }
+            }
+            playMusic(url, title, artist, addToHist=true) {
+                this.bgm.src = url; this.bgm.play().catch(e => {});
+                this.updateUI(title, artist); this.startTimer();
+                if(addToHist && (this.history.length === 0 || this.history[this.history.length-1].url !== url)) { this.history.push({url, title, artist}); this.histIdx = this.history.length - 1; }
+            }
+            toggleMute() { this.isMuted = !this.isMuted; this.bgm.muted = this.isMuted; document.getElementById('btn-mute').innerHTML = this.isMuted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>'; }
+            async playRandomIndo() { const terms = ['Indonesia Pop', 'Jazz Indonesia', 'Indo Hits']; const term = terms[Math.floor(Math.random()*terms.length)]; this.fetchAndPlay(term, true); }
+            async fetchAndPlay(term, random=false) { try { const offset = random ? Math.floor(Math.random() * 50) : 0; const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(term)}&limit=1&offset=${offset}&media=music&country=ID`); const data = await res.json(); if(data.results[0]) this.syncAndPlay(data.results[0].previewUrl, data.results[0].trackName, data.results[0].artistName); } catch(e) {} }
+            syncAndPlay(url, title, artist) { if(state.myIndex === 0) app.send({type: 'MUSIC_SYNC', url, title, artist}); this.playMusic(url, title, artist); }
+            handleTrackEnd() { if(state.myIndex === 0) this.next(); }
+            next() { if(state.myIndex !== 0) return; if(this.histIdx < this.history.length - 1) { this.histIdx++; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } else { this.playRandomIndo(); } }
+            prev() { if(state.myIndex !== 0) return; if(this.histIdx > 0) { this.histIdx--; const t = this.history[this.histIdx]; this.syncAndPlay(t.url, t.title, t.artist); } }
+            openSearch() { document.getElementById('modal-music').classList.remove('hidden'); }
+            async search() { const q = document.getElementById('music-search-input').value; if(!q) return; const list = document.getElementById('music-results'); list.innerHTML = 'Searching...'; try { const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&limit=10&media=music&country=ID`); const data = await res.json(); list.innerHTML = ''; data.results.forEach(t => { const div = document.createElement('div'); div.className = "flex justify-between items-center bg-white/5 p-2 rounded hover:bg-white/10 cursor-pointer"; div.innerHTML = `<div class="truncate w-48"><div class="font-bold text-yellow-400">${t.trackName}</div><div class="text-[10px] text-slate-400">${t.artistName}</div></div><button class="text-xs bg-blue-600 px-2 py-1 rounded"><i class="fa-solid fa-play"></i></button>`; div.onclick = () => { if(state.myIndex === 0) this.syncAndPlay(t.previewUrl, t.trackName, t.artistName); else app.sendHost({type: 'REQ_MUSIC', url: t.previewUrl, title: t.trackName, artist: t.artistName}); document.getElementById('modal-music').classList.add('hidden'); }; list.appendChild(div); }); } catch(e) { list.innerHTML = 'Error.'; } }
+            updateUI(t, a) { document.getElementById('music-title').innerText = t; document.getElementById('music-artist').innerText = a; }
+        }
+
+        // --- GAME LOGIC ---
+        const state = {
+            networkMode: 'peerjs',
+            myIndex: -1,
+            game: {
+                players: [], // { name, money, pos, color, properties:[], jailed:false }
+                turn: 0,
+                phase: 'roll', // roll, buy, end
+                dice: [1,1],
+                properties: Array(40).fill(null) // ownerIndex
+            }
+        };
+
+        const ui = {
+            initBoard: () => {
+                const con = document.querySelector('.board-container');
+                const add = (r,c,i, cls) => {
+                    const el = document.createElement('div');
+                    el.className = `space ${cls}`;
+                    el.style.gridRow = r; el.style.gridColumn = c;
+                    const s = SPACES[i];
+
+                    // Render Content
+                    if(s.type === 'prop' || s.type === 'rr' || s.type === 'util') {
+                        let colBar = '';
+                        if(s.color && s.type === 'prop') colBar = `<div class="color-bar ${s.color}"></div>`;
+                        el.innerHTML = `${colBar}<div class="p-1 leading-tight">${s.name}</div><div class="font-bold">$${s.price}</div>`;
+                    } else if (s.type === 'chance' || s.type === 'chest') {
+                        el.innerHTML = `<div class="text-xs font-bold ${s.type==='chance'?'text-red-500':'text-blue-500'}">${s.name}</div><i class="fa-solid fa-question text-xl opacity-20"></i>`;
+                    } else {
+                        el.innerHTML = `<div class="font-black">${s.name}</div>`;
+                    }
+
+                    // Ownership Indicator (Dynamic)
+                    el.id = `space-${i}`;
+                    con.appendChild(el);
+                };
+
+                // Bottom Row (10 -> 0)
+                for(let i=0; i<=10; i++) add(11, 11-i, i, i===0?'space-corner':'space-bottom space-v');
+                // Left Col (11 -> 19)
+                for(let i=11; i<=19; i++) add(21-i, 1, i, 'space-left space-h');
+                // Top Row (20 -> 30)
+                for(let i=20; i<=30; i++) add(1, i-19, i, i===20?'space-corner':'space-top space-v');
+                // Right Col (31 -> 39)
+                for(let i=31; i<=39; i++) add(i-29, 11, i, 'space-right space-h');
+            },
+            renderPlayers: () => {
+                // Tokens
+                document.querySelectorAll('.token').forEach(t=>t.remove());
+                state.game.players.forEach((p, idx) => {
+                    if(!p.active) return;
+                    const space = document.getElementById(`space-${p.pos}`);
+                    if(space) {
+                        const t = document.createElement('div');
+                        t.className = 'token';
+                        t.style.backgroundColor = p.color;
+                        // Offset
+                        const off = (idx * 4) - 6;
+                        t.style.transform = `translate(${off}px, ${off}px)`;
+                        space.appendChild(t);
+                    }
+                });
+
+                // UI Cards
+                const list = document.getElementById('player-list');
+                list.innerHTML = '';
+                state.game.players.forEach((p, idx) => {
+                     if(!p.active) return;
+                     const div = document.createElement('div');
+                     div.className = `player-card ${state.game.turn === idx ? 'active' : ''}`;
+
+                     const safeName = p.name.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+                     div.innerHTML = `
+                        <div class="flex justify-between items-center mb-1">
+                            <div class="font-bold text-white"><span class="inline-block w-2 h-2 rounded-full mr-1" style="background:${p.color}"></span> ${safeName}</div>
+                            <div class="text-green-400 font-mono">$${p.money}</div>
+                        </div>
+                        <div class="text-[8px] text-slate-400 leading-tight">Props: ${p.properties.length}</div>
+                     `;
+                     list.appendChild(div);
+                });
+
+                // Status
+                const me = state.game.players[state.myIndex];
+                const turnP = state.game.players[state.game.turn];
+                const isMyTurn = state.game.turn === state.myIndex;
+                document.getElementById('game-status').innerText = isMyTurn ? "GILIRANMU" : `Giliran ${turnP.name}`;
+                document.getElementById('btn-roll').disabled = !isMyTurn || state.game.phase !== 'roll';
+
+                const btnBuy = document.getElementById('btn-buy');
+                const btnEnd = document.getElementById('btn-end');
+
+                if(isMyTurn && state.game.phase === 'buy') {
+                    const s = SPACES[me.pos];
+                    if((s.type === 'prop' || s.type === 'rr' || s.type === 'util') && state.game.properties[me.pos] === null && me.money >= s.price) {
+                        btnBuy.classList.remove('hidden');
+                        document.getElementById('buy-price').innerText = s.price;
+                    } else btnBuy.classList.add('hidden');
+                    btnEnd.classList.remove('hidden');
+                    document.getElementById('btn-roll').classList.add('hidden');
+                } else if (isMyTurn && state.game.phase === 'end') {
+                    btnEnd.classList.remove('hidden');
+                    btnBuy.classList.add('hidden');
+                    document.getElementById('btn-roll').classList.add('hidden');
+                } else {
+                    btnBuy.classList.add('hidden');
+                    btnEnd.classList.add('hidden');
+                    document.getElementById('btn-roll').classList.remove('hidden');
+                }
+            },
+            log: (msg) => {
+                const l = document.getElementById('game-log');
+                const d = document.createElement('div');
+                d.innerText = `> ${msg}`;
+                l.appendChild(d);
+                l.scrollTop = l.scrollHeight;
+            },
+            showInfo: () => {
+                ui.log("Roll dadu, beli tanah, bangkrutkan lawan.");
+            },
+            showProp: (idx) => {
+                const s = SPACES[idx];
+                document.getElementById('modal-prop-header').innerText = s.name;
+                document.getElementById('modal-prop-header').className = `prop-header ${s.color || 'bg-black'}`;
+                document.getElementById('modal-prop-price').innerText = s.price;
+                document.getElementById('modal-prop-rent').innerText = s.rent || 0;
+                document.getElementById('modal-prop').classList.remove('hidden');
+            }
+        };
+
+        const game = {
+            init: (players) => {
+                state.game.players = players;
+                state.game.turn = 0;
+                state.game.phase = 'roll';
+                state.game.properties = Array(40).fill(null);
+                ui.renderPlayers();
+                ui.log("Game Dimulai!");
+                window.audio.playSfx('cash');
+            },
+            roll: () => {
+                const d1 = Math.ceil(Math.random()*6);
+                const d2 = Math.ceil(Math.random()*6);
+                app.send({type: 'ROLL', d1, d2});
+            },
+            handleRoll: (d1, d2) => {
+                state.game.dice = [d1, d2];
+                document.getElementById('die-1').innerText = d1;
+                document.getElementById('die-2').innerText = d2;
+                window.audio.playSfx('dice');
+
+                const p = state.game.players[state.game.turn];
+                const total = d1 + d2;
+
+                // Jail Logic (Simplified)
+                if(p.jailed) {
+                    if(d1 === d2) { p.jailed = false; ui.log(`${p.name} bebas dari penjara!`); }
+                    else { ui.log(`${p.name} gagal bebas.`); game.endTurn(true); return; }
+                }
+
+                p.pos = (p.pos + total) % 40;
+                // Pass GO
+                if(p.pos < total && p.pos !== 0) { // Wrapped around
+                    p.money += 200;
+                    ui.log(`${p.name} lewat GO (+200)`);
+                }
+
+                ui.renderPlayers();
+                game.checkSpace(p);
+            },
+            checkSpace: (p) => {
+                const s = SPACES[p.pos];
+                ui.log(`${p.name} mendarat di ${s.name}`);
+
+                // Logic
+                if (s.type === 'gotojail') {
+                    p.pos = 10; p.jailed = true; ui.log("Masuk Penjara!");
+                    state.game.phase = 'end';
+                } else if (s.type === 'tax') {
+                    p.money -= 200; ui.log("Bayar Pajak $200");
+                    state.game.phase = 'end';
+                } else if (s.type === 'prop' || s.type === 'rr' || s.type === 'util') {
+                    const owner = state.game.properties[p.pos];
+                    if(owner === null) {
+                        state.game.phase = 'buy';
+                    } else if (owner !== state.game.turn) {
+                        // Pay Rent
+                        const rent = s.rent || 20; // Simplified
+                        p.money -= rent;
+                        state.game.players[owner].money += rent;
+                        ui.log(`Bayar sewa $${rent} ke ${state.game.players[owner].name}`);
+                        window.audio.playSfx('cash');
+                        state.game.phase = 'end';
+                    } else {
+                        state.game.phase = 'end';
+                    }
+                } else {
+                    state.game.phase = 'end';
+                }
+
+                ui.renderPlayers();
+                // Bot Auto Action
+                if(state.networkMode === 'offline' && p.type === 'bot') {
+                    setTimeout(game.botTurn, 1000);
+                }
+            },
+            buyProp: () => {
+                app.send({type: 'BUY'});
+            },
+            handleBuy: () => {
+                const p = state.game.players[state.game.turn];
+                const s = SPACES[p.pos];
+                if(p.money >= s.price) {
+                    p.money -= s.price;
+                    p.properties.push(p.pos);
+                    state.game.properties[p.pos] = state.game.turn;
+                    ui.log(`${p.name} beli ${s.name}`);
+                    window.audio.playSfx('cash');
+                    state.game.phase = 'end';
+                    ui.renderPlayers();
+                }
+            },
+            endTurn: (force=false) => {
+                if(!force) app.send({type: 'END'});
+                else game.handleEnd();
+            },
+            handleEnd: () => {
+                state.game.turn = (state.game.turn + 1) % state.game.players.length;
+                while(!state.game.players[state.game.turn].active) {
+                     state.game.turn = (state.game.turn + 1) % state.game.players.length;
+                }
+                state.game.phase = 'roll';
+                ui.renderPlayers();
+
+                // Trigger Bot
+                if(state.networkMode === 'offline' && state.game.players[state.game.turn].type === 'bot') {
+                     setTimeout(game.botRoll, 1000);
+                }
+            },
+            // Bot Logic Inline
+            botRoll: () => { game.roll(); },
+            botTurn: () => {
+                const p = state.game.players[state.game.turn];
+                if(state.game.phase === 'buy') {
+                    const s = SPACES[p.pos];
+                    if(p.money >= s.price) game.buyProp();
+                    else game.endTurn();
+                } else {
+                    game.endTurn();
+                }
+            }
+        };
+
+        // --- APP ---
+        const app = {
+            init: () => {
+                ui.initBoard();
+            },
+            setNetworkMode: (m) => {
+                state.networkMode = m;
+                document.getElementById('mode-offline').className = m==='offline' ? 'px-3 py-1 text-[10px] rounded bg-white text-black font-bold' : 'px-3 py-1 text-[10px] rounded bg-white/10';
+                document.getElementById('mode-online').className = m==='peerjs' ? 'px-3 py-1 text-[10px] rounded bg-yellow-500 text-black font-bold' : 'px-3 py-1 text-[10px] rounded bg-white/10';
+                if(m==='offline') {
+                    document.getElementById('controls-online').classList.add('hidden');
+                    document.getElementById('controls-offline').classList.remove('hidden');
+                } else {
+                    document.getElementById('controls-online').classList.remove('hidden');
+                    document.getElementById('controls-offline').classList.add('hidden');
+                }
+            },
+            createOfflineGame: () => {
+                const count = parseInt(document.getElementById('offline-player-count').value);
+                const players = [
+                    { name: 'P1', money: 1500, pos: 0, color: 'red', properties: [], jailed: false, active: true, type: 'human' },
+                    { name: 'P2', money: 1500, pos: 0, color: 'blue', properties: [], jailed: false, active: true, type: 'bot' },
+                    { name: 'P3', money: 1500, pos: 0, color: 'green', properties: [], jailed: false, active: false, type: 'bot' },
+                    { name: 'P4', money: 1500, pos: 0, color: 'yellow', properties: [], jailed: false, active: false, type: 'bot' }
+                ];
+                for(let i=0; i<4; i++) {
+                    if(i >= count) players[i].active = false;
+                    else if (i>0) players[i].type = 'bot'; // P2-P4 are bots in offline mode default
+                }
+
+                state.myIndex = 0;
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.remove('hidden');
+                game.init(players);
+            },
+            createRoom: () => {
+                state.myIndex = 0;
+                const name = document.getElementById('input-name').value || "Host";
+                const players = [
+                    { name: name, money: 1500, pos: 0, color: 'red', properties: [], jailed: false, active: true, type: 'human' },
+                    { name: 'P2', money: 1500, pos: 0, color: 'blue', properties: [], jailed: false, active: true, type: 'human' } // Default 2P online
+                ];
+                document.getElementById('screen-home').classList.add('hidden');
+                document.getElementById('screen-game').classList.remove('hidden');
+                game.init(players);
+                // Init Network
+                if(state.networkMode === 'peerjs') initPeerJS(PEER_PREFIX + Math.floor(Math.random()*9000));
+            },
+            joinRoomPrompt: () => { document.getElementById('join-input-area').classList.remove('hidden'); },
+            joinRoom: () => {
+                 state.myIndex = 1; // Assume Guest is P2
+                 const name = document.getElementById('input-name').value || "Guest";
+                 const code = document.getElementById('input-room').value;
+                 document.getElementById('screen-home').classList.add('hidden');
+                 document.getElementById('screen-game').classList.remove('hidden');
+                 if(state.networkMode === 'peerjs') initPeerJS(null, PEER_PREFIX + code);
+            },
+            send: (d) => {
+                if(state.networkMode === 'offline') {
+                    if(d.type === 'ROLL') game.handleRoll(d.d1, d.d2);
+                    if(d.type === 'BUY') game.handleBuy();
+                    if(d.type === 'END') game.handleEnd();
+                    return;
+                }
+                // Online Logic
+                if(d.type === 'ROLL') { game.handleRoll(d.d1, d.d2); app.broadcast(d); }
+                else if(d.type === 'BUY') { game.handleBuy(); app.broadcast(d); }
+                else if(d.type === 'END') { game.handleEnd(); app.broadcast(d); }
+                else if(state.myIndex !== 0) { // Client sending to Host
+                     if(peerInstance && peerInstance.conn) peerInstance.conn.send(d);
+                }
+            },
+            broadcast: (d) => {
+                if(peerInstance) Object.values(connections).forEach(c => c.send(d));
+            },
+            handleData: (d) => {
+                if(d.type === 'ROLL') game.handleRoll(d.d1, d.d2);
+                if(d.type === 'BUY') game.handleBuy();
+                if(d.type === 'END') game.handleEnd();
+                if(d.type === 'STATE') { state.game = d.game; ui.renderPlayers(); }
+                if(d.type === 'MUSIC_SYNC') window.audio.playMusic(d.url, d.title, d.artist);
+            }
+        };
+
+        // --- NETWORKING ---
+        let peerInstance = null;
+        let connections = {};
+        const initPeerJS = (id, target) => {
+            const peer = new Peer(id, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
+            peerInstance = peer;
+            peer.on('open', (pid) => {
+                if(id) { // Host
+                    document.getElementById('room-display').innerText = pid.replace(PEER_PREFIX, '');
+                } else { // Client
+                    const conn = peer.connect(target);
+                    peer.conn = conn;
+                    conn.on('open', () => {
+                         conn.send({type: 'JOIN', name: document.getElementById('input-name').value});
+                         document.getElementById('room-display').innerText = target.replace(PEER_PREFIX, '');
+                    });
+                    conn.on('data', app.handleData);
+                }
+            });
+            peer.on('connection', (c) => {
+                c.on('data', (d) => {
+                    if(d.type === 'JOIN') {
+                         state.game.players[1].name = d.name; // Simple 2P Slot
+                         ui.renderPlayers();
+                         c.send({type: 'STATE', game: state.game});
+                    } else {
+                        app.handleData(d);
+                    }
+                });
+                connections[c.peer] = c;
+            });
+        };
+
+        window.audio = new AudioManager();
+        window.voice = new VoiceManager();
+
+        app.toggleVoice = async () => {
+             const btn = document.getElementById('btn-mic');
+             const fx = document.getElementById('voice-fx-panel');
+             if(btn.classList.contains('bg-red-500')) {
+                 window.voice.stop();
+                 btn.classList.remove('bg-red-500', 'text-white');
+                 btn.classList.add('bg-slate-700', 'text-slate-400');
+                 btn.innerHTML = '<i class="fa-solid fa-microphone-slash"></i>';
+                 fx.classList.add('hidden');
+             } else {
+                 const stream = await window.voice.getStream();
+                 if(stream) {
+                     btn.classList.add('bg-red-500', 'text-white');
+                     btn.classList.remove('bg-slate-700', 'text-slate-400');
+                     btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+                     fx.classList.remove('hidden');
+
+                     if(peerInstance) {
+                         if(state.myIndex === 0) Object.values(connections).forEach(c => peerInstance.call(c.peer, stream));
+                         else if(peerInstance.conn) peerInstance.call(peerInstance.conn.peer, stream);
+                     }
+                 }
+             }
+        };
+
+        app.init();
+    </script>
+</body>
+</html>

@@ -9,12 +9,7 @@ const BotAI = {
             const curVal = topCard.val;
 
             hand.forEach(cid => {
-                // Determine card properties based on side
-                // Access global cards state? We need the card data.
-                // Assuming 'window.state.game.cards' is available or passed.
-                // We'll assume the caller passes the full card objects or we access global.
-                // Ideally, pass the card objects.
-                // Let's use global for simplicity in this browser-based setup: window.state.game.cards
+                // Access global cards state
                 const cardRef = window.state.game.cards[cid];
                 const card = currentSide === 'light' ? cardRef.l : cardRef.d;
 
@@ -65,49 +60,45 @@ const BotAI = {
 
     // --- CHESS BOT LOGIC ---
     Chess: {
-        getMove: (boardObj, color) => {
-            // boardObj has .b (array 64)
-            // Need to find all valid moves for 'color'
-            const validMoves = [];
-            const myPrefix = color === 'white' ? 'w' : 'b';
+        getMove: () => {
+            // catur.html exposes: window.game = state; state.game = new Chess();
+            // So we access the chess instance via window.game.game
+            if (!window.game || !window.game.game) return null;
 
-            boardObj.b.forEach((piece, idx) => {
-                if (piece && piece.startsWith(myPrefix)) {
-                    // Get potential moves
-                    const moves = window.game.chess.getMoves(boardObj.b, idx, piece, color);
-                    moves.forEach(to => {
-                        // Very basic evaluation: Capture > Random
-                        let score = 0;
-                        const target = boardObj.b[to];
-                        if (target) {
-                            if (target.includes('q')) score = 9;
-                            else if (target.includes('r')) score = 5;
-                            else if (target.includes('b') || target.includes('n')) score = 3;
-                            else score = 1;
-                        }
-                        validMoves.push({ from: idx, to: to, score: score });
-                    });
-                }
+            const chess = window.game.game;
+            const moves = chess.moves({ verbose: true });
+
+            if (moves.length === 0) return null;
+
+            // Heuristic: Capture > Promotion > Check > Random
+            // Score moves
+            const scoredMoves = moves.map(m => {
+                let score = 0;
+                if (m.flags.includes('c')) score += 10; // Capture
+                if (m.flags.includes('p')) score += 8;  // Promotion
+                if (m.san.includes('+')) score += 5;    // Check
+                // Center control (d4, d5, e4, e5)
+                if (['d4','d5','e4','e5'].includes(m.to)) score += 2;
+
+                return { move: m, score: score };
             });
 
-            if (validMoves.length === 0) return null;
+            // Sort desc
+            scoredMoves.sort((a, b) => b.score - a.score);
 
-            // Sort by score
-            validMoves.sort((a, b) => b.score - a.score);
-
-            // Add some randomness to equal scores
-            const bestScore = validMoves[0].score;
-            const topMoves = validMoves.filter(m => m.score === bestScore);
-            const selected = topMoves[Math.floor(Math.random() * topMoves.length)];
-
-            return { from: selected.from, to: selected.to };
+            // Pick one of the best moves (add slight randomness)
+            const bestScore = scoredMoves[0].score;
+            const bestMoves = scoredMoves.filter(m => m.score === bestScore);
+            return bestMoves[Math.floor(Math.random() * bestMoves.length)].move;
         }
     },
 
     // --- LUDO BOT LOGIC ---
     Ludo: {
         decide: (pIdx, diceVal) => {
-            // Access state directly
+            // Ludo exposes window.state and window.game
+            if (!window.state || !window.game) return null;
+
             const player = window.state.game.players[pIdx];
             const tokens = player.tokens; // Array of positions
 
@@ -122,29 +113,26 @@ const BotAI = {
             if (movableIndices.length === 0) return null;
 
             // Strategy:
-            // 1. Kill opponent (best)
+            // 1. Kill opponent (best) - simplified check (if land on < 52 and occupied)
             // 2. Move token out of base (if 6)
             // 3. Move token closest to home (but not finished)
-            // 4. Move random
 
-            // Evaluate each move
             const scoredMoves = movableIndices.map(tIdx => {
                 let score = 0;
                 const currentPos = tokens[tIdx];
 
-                // Calc new pos
                 let nextPos = currentPos;
-                if (nextPos === -1) nextPos = 0;
+                if (nextPos === -1) nextPos = 0; // Just entered
                 else nextPos += diceVal;
 
-                // Check Kill
-                // Need to convert to global coords to check collisions
-                // This mimics the game logic...
-                // Simplified: Just prefer getting out of base or moving furthest
+                // Prioritize getting out of base
+                if (currentPos === -1 && diceVal === 6) score += 50;
 
-                if (currentPos === -1 && diceVal === 6) score += 100; // Open base
-                else if (nextPos === 56) score += 200; // Finish!
-                else score += nextPos; // Progress
+                // Prioritize progress
+                score += nextPos;
+
+                // Prioritize finishing
+                if (nextPos === 56 || nextPos === 99) score += 100;
 
                 return { tIdx, score };
             });
